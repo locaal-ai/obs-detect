@@ -1,0 +1,78 @@
+uniform float4x4 ViewProj;
+uniform texture2d image;
+uniform texture2d focalmask;
+uniform float4 color = {1.0, 1.0, 1.0, 1.0};
+
+sampler_state textureSampler {
+	Filter    = Linear;
+	AddressU  = Clamp;
+	AddressV  = Clamp;
+};
+
+struct VertDataIn {
+	float4 pos : POSITION;
+	float2 uv  : TEXCOORD0;
+};
+
+struct VertDataOut {
+	float4 pos : POSITION;
+	float2 uv  : TEXCOORD0;
+};
+
+VertDataOut VSDefault(VertDataOut v_in)
+{
+	VertDataOut vert_out;
+	vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
+	vert_out.uv  = v_in.uv;
+	return vert_out;
+}
+
+/* where the mask is 1 draw a solid color */
+float4 PSSolid(VertDataOut v_in) : TARGET
+{
+	if (focalmask.Sample(textureSampler, v_in.uv).r != 0) {
+		return color.bgra;
+    }
+    return image.Sample(textureSampler, v_in.uv);
+}
+
+/* draw just the mask */
+float4 PSMask(VertDataOut v_in) : TARGET
+{
+	if (focalmask.Sample(textureSampler, v_in.uv).r != 0) {
+		return float4(1,1,1,1);
+    }
+    return float4(0,0,0,1);
+}
+
+float4 PSDefault(VertDataOut v_in) : TARGET
+{
+    return image.Sample(textureSampler, v_in.uv);
+}
+
+technique DrawSolidColor
+{
+	pass
+	{
+		vertex_shader = VSDefault(v_in);
+		pixel_shader  = PSSolid(v_in);
+	}
+}
+
+technique DrawMask
+{
+	pass
+	{
+		vertex_shader = VSDefault(v_in);
+		pixel_shader  = PSMask(v_in);
+	}
+}
+
+technique Draw
+{
+	pass
+	{
+		vertex_shader = VSDefault(v_in);
+		pixel_shader  = PSDefault(v_in);
+	}
+}

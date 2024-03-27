@@ -6,16 +6,14 @@
 
 namespace edgeyolo_cpp {
 
-EdgeYOLOONNXRuntime::EdgeYOLOONNXRuntime(file_name_t path_to_model,
-					 int intra_op_num_threads,
-					 int inter_op_num_threads,
-					 const std::string& use_gpu, int device_id,
-					 bool use_parallel, float nms_th,
-					 float conf_th, int num_classes)
+EdgeYOLOONNXRuntime::EdgeYOLOONNXRuntime(
+	file_name_t path_to_model, int intra_op_num_threads,
+	int inter_op_num_threads, const std::string &use_gpu_, int device_id,
+	bool use_parallel, float nms_th, float conf_th, int num_classes)
 	: AbcEdgeYOLO(nms_th, conf_th, num_classes),
 	  intra_op_num_threads_(intra_op_num_threads),
 	  inter_op_num_threads_(inter_op_num_threads),
-	  use_gpu(use_gpu),
+	  use_gpu(use_gpu_),
 	  device_id_(device_id),
 	  use_parallel_(use_parallel)
 {
@@ -43,7 +41,7 @@ EdgeYOLOONNXRuntime::EdgeYOLOONNXRuntime(file_name_t path_to_model,
 				cuda_option);
 		}
 #ifdef _WIN32
-        if (this->use_gpu == "dml") {
+		if (this->use_gpu == "dml") {
 			auto &api = Ort::GetApi();
 			OrtDmlApi *dmlApi = nullptr;
 			Ort::ThrowOnError(api.GetExecutionProviderApi(
@@ -52,7 +50,7 @@ EdgeYOLOONNXRuntime::EdgeYOLOONNXRuntime(file_name_t path_to_model,
 			Ort::ThrowOnError(
 				dmlApi->SessionOptionsAppendExecutionProvider_DML(
 					session_options, 0));
-        }
+		}
 #endif
 
 		this->session_ = Ort::Session::Session(
@@ -65,11 +63,8 @@ EdgeYOLOONNXRuntime::EdgeYOLOONNXRuntime(file_name_t path_to_model,
 	Ort::AllocatorWithDefaultOptions ort_alloc;
 
 	// Allocate input memory buffer
-	std::cout << "input:" << std::endl;
 	this->input_name_ = std::string(
 		this->session_.GetInputNameAllocated(0, ort_alloc).get());
-	// this->input_name_ = this->session_.GetInputName(0, ort_alloc);
-	std::cout << " name: " << this->input_name_ << std::endl;
 	auto input_info = this->session_.GetInputTypeInfo(0);
 	auto input_shape_info = input_info.GetTensorTypeAndShapeInfo();
 	std::vector<int64_t> input_shape = input_shape_info.GetShape();
@@ -78,19 +73,12 @@ EdgeYOLOONNXRuntime::EdgeYOLOONNXRuntime(file_name_t path_to_model,
 	this->input_h_ = (int)(input_shape[2]);
 	this->input_w_ = (int)(input_shape[3]);
 
-	std::cout << " shape:" << std::endl;
-	for (size_t i = 0; i < input_shape.size(); i++) {
-		std::cout << "   - " << input_shape[i] << std::endl;
-	}
-	std::cout << " tensor_type: " << input_tensor_type << std::endl;
-
 	size_t input_byte_count =
 		sizeof(float) * input_shape_info.GetElementCount();
 	std::unique_ptr<uint8_t[]> input_buffer =
 		std::make_unique<uint8_t[]>(input_byte_count);
-	// auto input_memory_info = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
-	auto input_memory_info =
-		Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
+	auto input_memory_info = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator,
+							    OrtMemTypeDefault);
 
 	this->input_tensor_ = Ort::Value::CreateTensor(
 		input_memory_info, input_buffer.get(), input_byte_count,
@@ -98,11 +86,8 @@ EdgeYOLOONNXRuntime::EdgeYOLOONNXRuntime(file_name_t path_to_model,
 	this->input_buffer_.emplace_back(std::move(input_buffer));
 
 	// Allocate output memory buffer
-	std::cout << "outputs" << std::endl;
 	this->output_name_ = std::string(
 		this->session_.GetOutputNameAllocated(0, ort_alloc).get());
-	// this->output_name_ = this->session_.GetOutputName(0, ort_alloc);
-	std::cout << " name: " << this->output_name_ << std::endl;
 
 	auto output_info = this->session_.GetOutputTypeInfo(0);
 	auto output_shape_info = output_info.GetTensorTypeAndShapeInfo();
@@ -110,21 +95,17 @@ EdgeYOLOONNXRuntime::EdgeYOLOONNXRuntime(file_name_t path_to_model,
 	auto output_tensor_type = output_shape_info.GetElementType();
 
 	this->num_array_ = 1;
-	std::cout << " shape:" << std::endl;
 	for (size_t i = 0; i < output_shape.size(); i++) {
-		std::cout << "   - " << output_shape[i] << std::endl;
 		this->num_array_ *= (int)(output_shape[i]);
 	}
-	std::cout << " tensor_type: " << output_tensor_type << std::endl;
 	this->num_array_ /= (5 + this->num_classes_);
 
 	size_t output_byte_count =
 		sizeof(float) * output_shape_info.GetElementCount();
 	std::unique_ptr<uint8_t[]> output_buffer =
 		std::make_unique<uint8_t[]>(output_byte_count);
-	// auto output_memory_info = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeDefault);
-	auto output_memory_info =
-		Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator, OrtMemTypeCPU);
+	auto output_memory_info = Ort::MemoryInfo::CreateCpu(OrtDeviceAllocator,
+							     OrtMemTypeDefault);
 
 	this->output_tensor_ = Ort::Value::CreateTensor(
 		output_memory_info, output_buffer.get(), output_byte_count,
@@ -151,8 +132,8 @@ std::vector<Object> EdgeYOLOONNXRuntime::inference(const cv::Mat &frame)
 	float *net_pred = (float *)this->output_buffer_[0].get();
 
 	// post process
-	float scale = std::fminf(input_w_ / (frame.cols * 1.0f),
-				 input_h_ / (frame.rows * 1.0f));
+	float scale = std::fminf((float)input_w_ / (float)frame.cols,
+				 (float)input_h_ / (float)frame.rows);
 	std::vector<Object> objects;
 	decode_outputs(net_pred, this->num_array_, objects,
 		       this->bbox_conf_thresh_, scale, frame.cols, frame.rows);

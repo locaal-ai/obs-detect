@@ -7,9 +7,8 @@ const char *const USEGPU_CUDA = "cuda";
 const char *const USEGPU_TENSORRT = "tensorrt";
 const char *const USEGPU_COREML = "coreml";
 
-const char *const EFFECT_PATH = "effects/mask_alpha_filter.effect";
 const char *const KAWASE_BLUR_EFFECT_PATH = "effects/kawase_blur.effect";
-const char *const BLEND_EFFECT_PATH = "effects/blend_images.effect";
+const char *const MASKING_EFFECT_PATH = "effects/masking.effect";
 
 const char *const PLUGIN_INFO_TEMPLATE =
 	"<a href=\"https://github.com/occ-ai/obs-detect/\">Detect Plugin</a> (%1) by "

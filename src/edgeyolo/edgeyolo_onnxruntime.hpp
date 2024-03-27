@@ -13,35 +13,33 @@
 #include "core.hpp"
 #include "coco_names.hpp"
 
-namespace edgeyolo_cpp
-{
-    class EdgeYOLOONNXRuntime : public AbcEdgeYOLO
-    {
-    public:
-        EdgeYOLOONNXRuntime(file_name_t path_to_model,
-                            int intra_op_num_threads, int inter_op_num_threads = 1,
-                            const std::string& use_gpu = "", int device_id = 0, bool use_parallel = false,
-                            float nms_th = 0.45, float conf_th = 0.3,
-                            int num_classes = 80);
-        std::vector<Object> inference(const cv::Mat &frame) override;
+namespace edgeyolo_cpp {
+class EdgeYOLOONNXRuntime : public AbcEdgeYOLO {
+public:
+	EdgeYOLOONNXRuntime(file_name_t path_to_model, int intra_op_num_threads,
+			    int inter_op_num_threads = 1,
+			    const std::string &use_gpu_ = "", int device_id = 0,
+			    bool use_parallel = false, float nms_th = 0.45f,
+			    float conf_th = 0.3f, int num_classes = 80);
+	std::vector<Object> inference(const cv::Mat &frame) override;
 
-    private:
-        int intra_op_num_threads_ = 1;
-        int inter_op_num_threads_ = 1;
-        int device_id_ = 0;
-        std::string use_gpu = "";
-        bool use_parallel_ = false;
+private:
+	int intra_op_num_threads_ = 1;
+	int inter_op_num_threads_ = 1;
+	int device_id_ = 0;
+	std::string use_gpu = "";
+	bool use_parallel_ = false;
 
-        Ort::Session session_{nullptr};
-        Ort::Env env_{ORT_LOGGING_LEVEL_WARNING, "Default"};
+	Ort::Session session_{nullptr};
+	Ort::Env env_{ORT_LOGGING_LEVEL_WARNING, "Default"};
 
-        Ort::Value input_tensor_{nullptr};
-        Ort::Value output_tensor_{nullptr};
-        std::string input_name_;
-        std::string output_name_;
-        std::vector<std::unique_ptr<uint8_t[]>> input_buffer_;
-        std::vector<std::unique_ptr<uint8_t[]>> output_buffer_;
-    };
-}
+	Ort::Value input_tensor_{nullptr};
+	Ort::Value output_tensor_{nullptr};
+	std::string input_name_;
+	std::string output_name_;
+	std::vector<std::unique_ptr<uint8_t[]>> input_buffer_;
+	std::vector<std::unique_ptr<uint8_t[]>> output_buffer_;
+};
+} // namespace edgeyolo_cpp
 
 #endif
