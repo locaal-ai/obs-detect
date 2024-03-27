@@ -33,14 +33,14 @@
     },
     "platformConfig": {
         "macos": {
-            "bundleId": "com.example.obs-plugintemplate"
+            "bundleId": "com.royshilkrot.obs-detect"
         }
     },
-    "name": "obs-plugintemplate",
-    "displayName": "OBS Plugin Template",
-    "version": "1.0.0",
-    "author": "Your Name Here",
-    "website": "https://example.com",
+    "name": "obs-detect",
+    "displayName": "OBS Object Detection plugin",
+    "version": "0.0.1",
+    "author": "Roy Shilkrot",
+    "website": "https://github.com/occ-ai",
     "email": "me@example.com",
     "uuids": {
         "windowsApp": "00000000-0000-0000-0000-000000000000"

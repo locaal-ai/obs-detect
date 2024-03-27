@@ -35,7 +35,8 @@ add_compile_options(
   "$<$<COMPILE_LANG_AND_ID:CXX,MSVC>:/MP>"
   "$<$<COMPILE_LANG_AND_ID:C,Clang>:${_obs_clang_c_options}>"
   "$<$<COMPILE_LANG_AND_ID:CXX,Clang>:${_obs_clang_cxx_options}>"
-  $<$<NOT:$<CONFIG:Debug>>:/Gy>)
+  $<$<NOT:$<CONFIG:Debug>>:/Gy>
+  /IGNORE:4099)
 
 add_compile_definitions(UNICODE _UNICODE _CRT_SECURE_NO_WARNINGS _CRT_NONSTDC_NO_WARNINGS $<$<CONFIG:DEBUG>:DEBUG>
                         $<$<CONFIG:DEBUG>:_DEBUG>)
@@ -45,7 +46,8 @@ add_link_options($<$<NOT:$<CONFIG:Debug>>:/OPT:REF>
                  $<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>
                  $<$<NOT:$<CONFIG:Debug>>:/INCREMENTAL:NO>
                  /DEBUG
-                 /Brepro)
+                 /Brepro
+                 /IGNORE:4099)
 # cmake-format: on
 
 if(CMAKE_COMPILE_WARNING_AS_ERROR)

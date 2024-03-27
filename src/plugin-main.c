@@ -22,8 +22,16 @@ with this program. If not, see <https://www.gnu.org/licenses/>
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
 
+MODULE_EXPORT const char *obs_module_description(void)
+{
+	return obs_module_text("DetectFilterPlugin");
+}
+
+extern struct obs_source_info detect_filter_info;
+
 bool obs_module_load(void)
 {
+    obs_register_source(&detect_filter_info);
 	obs_log(LOG_INFO, "plugin loaded successfully (version %s)",
 		PLUGIN_VERSION);
 	return true;

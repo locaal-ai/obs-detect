@@ -34,6 +34,53 @@ if(ENABLE_QT)
                AUTORCC ON)
 endif()
 
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-main.c)
+set(USE_SYSTEM_ONNXRUNTIME
+    OFF
+    CACHE STRING "Use system ONNX Runtime")
+
+set(DISABLE_ONNXRUNTIME_GPU
+    OFF
+    CACHE STRING "Disables GPU support of ONNX Runtime (Only valid on Linux)")
+
+if(DISABLE_ONNXRUNTIME_GPU)
+  target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE DISABLE_ONNXRUNTIME_GPU)
+endif()
+
+if(USE_SYSTEM_ONNXRUNTIME)
+  if(OS_LINUX)
+    find_package(Onnxruntime 1.16.3 REQUIRED)
+    set(Onnxruntime_INCLUDE_PATH
+        ${Onnxruntime_INCLUDE_DIR} ${Onnxruntime_INCLUDE_DIR}/onnxruntime
+        ${Onnxruntime_INCLUDE_DIR}/onnxruntime/core/session ${Onnxruntime_INCLUDE_DIR}/onnxruntime/core/providers/cpu)
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE "${Onnxruntime_LIBRARIES}")
+    target_include_directories(${CMAKE_PROJECT_NAME} SYSTEM PUBLIC "${Onnxruntime_INCLUDE_PATH}")
+  else()
+    message(FATAL_ERROR "System ONNX Runtime is only supported on Linux!")
+  endif()
+else()
+  include(cmake/FetchOnnxruntime.cmake)
+endif()
+
+set(USE_SYSTEM_OPENCV
+    OFF
+    CACHE STRING "Use system OpenCV")
+if(USE_SYSTEM_OPENCV)
+  if(OS_LINUX)
+    find_package(OpenCV REQUIRED COMPONENTS core imgproc)
+    target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE "${OpenCV_LIBRARIES}")
+    target_include_directories(${CMAKE_PROJECT_NAME} SYSTEM PUBLIC "${OpenCV_INCLUDE_DIRS}")
+  else()
+    message(FATAL_ERROR "System OpenCV is only supported on Linux!")
+  endif()
+else()
+  include(cmake/FetchOpenCV.cmake)
+  target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OpenCV)
+endif()
+
+target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-main.c
+    src/detect-filter.cpp
+    src/detect-filter-info.c
+    src/obs-utils/obs-utils.cpp
+    src/edgeyolo/edgeyolo_onnxruntime.cpp)
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
