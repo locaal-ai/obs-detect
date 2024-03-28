@@ -50,7 +50,7 @@ static bool enable_advanced_settings(obs_properties_t *ppts, obs_property_t *p,
 
 	for (const char *prop_name :
 	     {"threshold", "useGPU", "preview", "numThreads", "object_category",
-	      "masking_group", "tracking_group"}) {
+	      "masking_group", "tracking_group", "model_size"}) {
 		p = obs_properties_get(ppts, prop_name);
 		obs_property_set_visible(p, enabled);
 	}
@@ -136,35 +136,23 @@ obs_properties_t *detect_filter_properties(void *data)
 				obs_data_get_bool(settings, "masking_group");
 			obs_property_t *prop =
 				obs_properties_get(props_, "masking_type");
-			obs_property_set_visible(prop, enabled);
 			obs_property_t *masking_color =
 				obs_properties_get(props_, "masking_color");
 			obs_property_t *masking_blur_radius =
 				obs_properties_get(props_,
 						   "masking_blur_radius");
-			if (enabled) {
-				const char *masking_type = obs_data_get_string(
-					settings, "masking_type");
-				if (strcmp(masking_type, "solid_color") == 0) {
-					obs_property_set_visible(masking_color,
-								 true);
-					obs_property_set_visible(
-						masking_blur_radius, false);
-				} else if (strcmp(masking_type, "blur") == 0) {
-					obs_property_set_visible(masking_color,
-								 false);
-					obs_property_set_visible(
-						masking_blur_radius, true);
-				} else {
-					obs_property_set_visible(masking_color,
-								 false);
-					obs_property_set_visible(
-						masking_blur_radius, false);
-				}
-			} else {
-				obs_property_set_visible(masking_color, false);
+
+			obs_property_set_visible(prop, enabled);
+			obs_property_set_visible(masking_color, false);
+			obs_property_set_visible(masking_blur_radius, false);
+			const char *masking_type_value =
+				obs_data_get_string(settings, "masking_type");
+			if (strcmp(masking_type_value, "solid_color") == 0) {
+				obs_property_set_visible(masking_color,
+							 enabled);
+			} else if (strcmp(masking_type_value, "blur") == 0) {
 				obs_property_set_visible(masking_blur_radius,
-							 false);
+							 enabled);
 			}
 			return true;
 		});
@@ -204,18 +192,14 @@ obs_properties_t *detect_filter_properties(void *data)
 			obs_property_t *masking_blur_radius =
 				obs_properties_get(props_,
 						   "masking_blur_radius");
+			obs_property_set_visible(masking_color, false);
+			obs_property_set_visible(masking_blur_radius, false);
+
 			if (strcmp(masking_type_value, "solid_color") == 0) {
 				obs_property_set_visible(masking_color, true);
-				obs_property_set_visible(masking_blur_radius,
-							 false);
 			} else if (strcmp(masking_type_value, "blur") == 0) {
-				obs_property_set_visible(masking_color, false);
 				obs_property_set_visible(masking_blur_radius,
 							 true);
-			} else {
-				obs_property_set_visible(masking_color, false);
-				obs_property_set_visible(masking_blur_radius,
-							 false);
 			}
 			return true;
 		});
@@ -243,8 +227,8 @@ obs_properties_t *detect_filter_properties(void *data)
 
 	// add zoom factor slider
 	obs_properties_add_float_slider(tracking_group_props, "zoom_factor",
-					obs_module_text("ZoomFactor"), 1.0,
-					10.0, 0.1);
+					obs_module_text("ZoomFactor"), 0.0, 1.0,
+					0.05);
 
 	// add object selection for zoom drop down: "Single", "All"
 	obs_property_t *zoom_object = obs_properties_add_list(
@@ -257,16 +241,8 @@ obs_properties_t *detect_filter_properties(void *data)
 				     "all");
 
 	// Add a informative text about the plugin
-	// replace the placeholder with the current version
-	// use std::regex_replace instead of QString::arg because the latter doesn't work on Linux
 	std::string basic_info = std::regex_replace(
 		PLUGIN_INFO_TEMPLATE, std::regex("%1"), PLUGIN_VERSION);
-	// Check for update
-	// if (get_latest_version() != nullptr) {
-	// 	basic_info += std::regex_replace(
-	// 		PLUGIN_INFO_TEMPLATE_UPDATE_AVAILABLE, std::regex("%1"),
-	// 		get_latest_version());
-	// }
 	obs_properties_add_text(props, "info", basic_info.c_str(),
 				OBS_TEXT_INFO);
 
@@ -295,7 +271,7 @@ void detect_filter_defaults(obs_data_t *settings)
 	obs_data_set_default_string(settings, "masking_color", "#000000");
 	obs_data_set_default_int(settings, "masking_blur_radius", 0);
 	obs_data_set_default_bool(settings, "tracking_group", false);
-	obs_data_set_default_double(settings, "zoom_factor", 1.0);
+	obs_data_set_default_double(settings, "zoom_factor", 0.0);
 	obs_data_set_default_string(settings, "zoom_object", "single");
 }
 
@@ -402,6 +378,9 @@ void detect_filter_update(void *data, obs_data_t *settings)
 
 		// Load model
 		try {
+			if (tf->edgeyolo) {
+				tf->edgeyolo.reset();
+			}
 			tf->edgeyolo = std::make_unique<
 				edgeyolo_cpp::EdgeYOLOONNXRuntime>(
 				tf->modelFilepath, tf->numThreads,
@@ -428,6 +407,7 @@ void detect_filter_update(void *data, obs_data_t *settings)
 	obs_log(LOG_INFO, "  Source: %s", obs_source_get_name(tf->source));
 	obs_log(LOG_INFO, "  Inference Device: %s", tf->useGPU.c_str());
 	obs_log(LOG_INFO, "  Num Threads: %d", tf->numThreads);
+	obs_log(LOG_INFO, "  Model Size: %s", tf->modelSize.c_str());
 	obs_log(LOG_INFO, "  Preview: %s", tf->preview ? "true" : "false");
 	obs_log(LOG_INFO, "  Threshold: %.2f", tf->conf_threshold);
 	obs_log(LOG_INFO, "  Object Category: %s",
@@ -483,7 +463,6 @@ void *detect_filter_create(obs_data_t *settings, obs_source_t *source)
 
 	tf->source = source;
 	tf->texrender = gs_texrender_create(GS_BGRA, GS_ZS_NONE);
-	tf->effect = obs_get_base_effect(OBS_EFFECT_OPAQUE);
 
 	char *kawaseBlurEffectPath = obs_module_file(KAWASE_BLUR_EFFECT_PATH);
 	if (!kawaseBlurEffectPath) {
@@ -493,7 +472,7 @@ void *detect_filter_create(obs_data_t *settings, obs_source_t *source)
 	}
 	char *maskingEffectPath = obs_module_file(MASKING_EFFECT_PATH);
 	if (!maskingEffectPath) {
-		obs_log(LOG_ERROR, "Failed to get Kawase Blur effect path");
+		obs_log(LOG_ERROR, "Failed to get masking effect path");
 		tf->isDisabled = true;
 		bfree(kawaseBlurEffectPath);
 		return tf;
@@ -539,6 +518,8 @@ void detect_filter_destroy(void *data)
 		if (tf->stagesurface) {
 			gs_stagesurface_destroy(tf->stagesurface);
 		}
+		gs_effect_destroy(tf->kawaseBlurEffect);
+		gs_effect_destroy(tf->maskingEffect);
 		obs_leave_graphics();
 		tf->~detect_filter();
 		bfree(tf);
@@ -588,7 +569,6 @@ void detect_filter_video_tick(void *data, float seconds)
 		objects = tf->edgeyolo->inference(frame);
 	} catch (const Ort::Exception &e) {
 		obs_log(LOG_ERROR, "ONNXRuntime Exception: %s", e.what());
-		// TODO: Fall back to CPU if it makes sense
 	} catch (const std::exception &e) {
 		obs_log(LOG_ERROR, "%s", e.what());
 	}
@@ -647,10 +627,8 @@ void detect_filter_video_tick(void *data, float seconds)
 		// calculate an aspect ratio box around the object using its height
 		float boxHeight = boundingBox.height;
 		// calculate the zooming box size
-		// when the zoom factor is 1, the zooming box is the same size as the bounding box
-		// when the zoom factor is 10, the zooming box is the same size of the image
 		float dh = (float)frame.rows - boxHeight;
-		float buffer = dh * ((tf->zoomFactor - 1) / 9);
+		float buffer = dh * (1.0f - tf->zoomFactor);
 		float zh = boxHeight + buffer;
 		float zw = zh * frameAspectRatio;
 		// calculate the top left corner of the zooming box
@@ -662,7 +640,6 @@ void detect_filter_video_tick(void *data, float seconds)
 			tf->trackingRect = cv::Rect2f(zx, zy, zw, zh);
 		} else {
 			// interpolate the zooming box to tf->trackingRect
-			// the interpolation factor is (lostTracking) ? 0.1 : 0.5  to make the zooming box move smoothly
 			float factor = lostTracking ? 0.01f : 0.05f;
 			tf->trackingRect.x = tf->trackingRect.x +
 					     factor * (zx - tf->trackingRect.x);

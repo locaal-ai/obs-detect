@@ -5,7 +5,6 @@
 [![GitHub](https://img.shields.io/github/license/occ-ai/obs-detect)](https://github.com/occ-ai/obs-detect/blob/main/LICENSE)
 [![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/occ-ai/obs-detect/push.yaml)](https://github.com/occ-ai/obs-detect/actions/workflows/push.yaml)
 [![Total downloads](https://img.shields.io/github/downloads/occ-ai/obs-detect/total)](https://github.com/occ-ai/obs-detect/releases)
-![Flathub](https://img.shields.io/flathub/downloads/com.obsproject.Studio.Plugin.BackgroundRemoval?label=Flathub%20Installs)
 [![GitHub release (latest by date)](https://img.shields.io/github/v/release/occ-ai/obs-detect)](https://github.com/occ-ai/obs-detect/releases)
 [![Discord](https://img.shields.io/discord/1200229425141252116)](https://discord.gg/KbjGU2vvUz)
 
@@ -18,26 +17,78 @@ If you like this work, which is given to you completely free of charge, please c
 - https://github.com/sponsors/royshil
 - https://github.com/sponsors/umireon
 
+This work uses the great contributions from [EdgeYOLO-ROS](https://github.com/fateshelled/EdgeYOLO-ROS) and [PINTO-Model-Zoo](https://github.com/PINTO0309/PINTO_model_zoo).
+
 ## Usage
 
-<div align="center">
-<video src="https://github.com/occ-ai/obs-backgroundremoval/assets/1067855/5ba5aae2-7ea2-4c90-ad45-fba5ccde1a4e" width="320"></video>
-</div>
+- Add the "Detect" filter to any source with an image
+- Enable "Masking" or "Tracking"
 
+Use Detect to track your pet, or blur out people in your video!
 
+More information and usage tutorials to follow soon.
 
-### GitHub Actions Set Up
+## Features
 
-To use code signing on GitHub Actions, the certificate and associated information need to be set up as _repository secrets_ in the GitHub repository's settings.
+Current features:
 
-* First, the locally stored developer certificate needs to be exported from the macOS keychain:
-    * Using the Keychain app on macOS, export these your certificates (Application and Installer) public _and_ private keys into a single .p12 file **protected with a strong password**
-    * Encode the .p12 file into its base64 representation by running `base64 <NAME_OF_YOUR_P12_FILE>`
-* Next, the certificate data and the password used to export it need to be set up as repository secrets:
-    * `MACOS_SIGNING_APPLICATION_IDENTITY`: Name of the "Developer ID Application" signing certificate
-    * `MACOS_SIGNING_INSTALLER_IDENTITY`: Name of "Developer ID Installer" signing certificate
-    * `MACOS_SIGNING_CERT`: The base64 encoded `.p12` file
-    * `MACOS_SIGNING_CERT_PASSWORD`: Password used to generate the .p12 certificate
-* To also enable notarization on GitHub Action runners, the following repository secrets are required:
-    * `MACOS_NOTARIZATION_USERNAME`: Your Apple Developer account's _Apple ID_
-    * `MACOS_NOTARIZATION_PASSWORD`: Your Apple Developer account's _generated app password_
+- Detect over 80 categories of objects, using an efficient model ([EdgeYOLO](https://github.com/LSH9832/edgeyolo))
+- 3 Model sizes: Small, Medium and Large
+- Control detection threshold
+- Select object category filter (e.g. find only "Person")
+- Masking: Blur, Solid color, Transparent, output binary mask (combine with other plugins!)
+- Tracking: Single object / All objects, Zoom factor, smooth transition
+
+Roadmap features:
+- Precise object mask, beyond bounding box
+- Implement SORT tracking for smoothness
+- Multiple object category selection (e.g. Dog + Cat + Duck)
+- Make available detection information for other plugins through settings
+- More real-time models choices
+
+## Building
+
+The plugin was built and tested on Mac OSX  (Intel & Apple silicon), Windows and Linux.
+
+Start by cloning this repo to a directory of your choice.
+
+### Mac OSX
+
+Using the CI pipeline scripts, locally you would just call the zsh script. By default this builds a universal binary for both Intel and Apple Silicon. To build for a specific architecture please see `.github/scripts/.build.zsh` for the `-arch` options.
+
+```sh
+$ ./.github/scripts/build-macos -c Release
+```
+
+#### Install
+The above script should succeed and the plugin files (e.g. `obs-ocr.plugin`) will reside in the `./release/Release` folder off of the root. Copy the `.plugin` file to the OBS directory e.g. `~/Library/Application Support/obs-studio/plugins`.
+
+To get `.pkg` installer file, run for example
+```sh
+$ ./.github/scripts/package-macos -c Release
+```
+(Note that maybe the outputs will be in the `Release` folder and not the `install` folder like `pakage-macos` expects, so you will need to rename the folder from `build_x86_64/Release` to `build_x86_64/install`)
+
+### Linux (Ubuntu)
+
+Use the CI scripts again
+```sh
+$ ./.github/scripts/build-linux.sh
+```
+
+Copy the results to the standard OBS folders on Ubuntu
+```sh
+$ sudo cp -R release/RelWithDebInfo/lib/* /usr/lib/x86_64-linux-gnu/
+$ sudo cp -R release/RelWithDebInfo/share/* /usr/share/
+```
+Note: The official [OBS plugins guide](https://obsproject.com/kb/plugins-guide) recommends adding plugins to the `~/.config/obs-studio/plugins` folder.
+
+### Windows
+
+Use the CI scripts again, for example:
+
+```powershell
+> .github/scripts/Build-Windows.ps1 -Target x64
+```
+
+The build should exist in the `./release` folder off the root. You can manually install the files in the OBS directory.

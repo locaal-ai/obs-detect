@@ -30,7 +30,6 @@ struct filter_data {
 	obs_source_t *source;
 	gs_texrender_t *texrender;
 	gs_stagesurf_t *stagesurface;
-	gs_effect_t *effect;
 	gs_effect_t *kawaseBlurEffect;
 	gs_effect_t *maskingEffect;
 
