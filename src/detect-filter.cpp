@@ -318,6 +318,34 @@ void detect_filter_update(void *data, obs_data_t *settings)
 	tf->zoomFactor = (float)obs_data_get_double(settings, "zoom_factor");
 	tf->zoomObject = obs_data_get_string(settings, "zoom_object");
 
+	obs_source_t *parent = obs_filter_get_parent(tf->source);
+	if (tf->trackingEnabled) {
+		obs_log(LOG_INFO, "Tracking enabled");
+		// get the parent of the source
+		// check if it has a crop/pad filter
+		obs_source_t *crop_pad_filter = obs_source_get_filter_by_name(
+			parent, "Detect Tracking");
+		if (!crop_pad_filter) {
+			// create a crop-pad filter
+			crop_pad_filter = obs_source_create("crop_filter",
+							    "Detect Tracking",
+							    nullptr, nullptr);
+			// add a crop/pad filter to the source
+			// set the parent of the crop/pad filter to the parent of the source
+			obs_source_filter_add(parent, crop_pad_filter);
+		}
+		tf->trackingFilter = crop_pad_filter;
+	} else {
+		obs_log(LOG_INFO, "Tracking disabled");
+		// remove the crop/pad filter
+		obs_source_t *crop_pad_filter = obs_source_get_filter_by_name(
+			parent, "Detect Tracking");
+		if (crop_pad_filter) {
+			obs_source_filter_remove(parent, crop_pad_filter);
+		}
+		tf->trackingFilter = nullptr;
+	}
+
 	const std::string newUseGpu = obs_data_get_string(settings, "useGPU");
 	const uint32_t newNumThreads =
 		(uint32_t)obs_data_get_int(settings, "numThreads");
@@ -592,6 +620,82 @@ void detect_filter_video_tick(void *data, float seconds)
 		std::lock_guard<std::mutex> lock(tf->outputLock);
 		cv::cvtColor(frame, tf->outputPreviewBGRA, cv::COLOR_BGR2BGRA);
 	}
+
+	if (tf->trackingEnabled && tf->trackingFilter) {
+		cv::Rect2f boundingBox =
+			cv::Rect2f(0, 0, (float)frame.cols, (float)frame.rows);
+		// get location of the objects
+		if (tf->zoomObject == "single") {
+			if (objects.size() > 0) {
+				boundingBox = objects[0].rect;
+			}
+		} else {
+			// get the bounding box of all objects
+			if (objects.size() > 0) {
+				boundingBox = objects[0].rect;
+				for (const edgeyolo_cpp::Object &obj :
+				     objects) {
+					boundingBox |= obj.rect;
+				}
+			}
+		}
+		bool lostTracking = objects.size() == 0;
+		// the zooming box should maintain the aspect ratio of the image
+		// with the tf->zoomFactor controlling the effective buffer around the bounding box
+		// the bounding box is the center of the zooming box
+		float frameAspectRatio = (float)frame.cols / (float)frame.rows;
+		// calculate an aspect ratio box around the object using its height
+		float boxHeight = boundingBox.height;
+		float boxWidth = boxHeight * frameAspectRatio;
+		// calculate the zooming box size
+		// when the zoom factor is 1, the zooming box is the same size as the bounding box
+		// when the zoom factor is 10, the zooming box is the same size of the image
+		float dh = frame.rows - boxHeight;
+		float buffer = dh * ((tf->zoomFactor - 1) / 9);
+		float zh = boxHeight + buffer;
+		float zw = zh * frameAspectRatio;
+		// calculate the top left corner of the zooming box
+		float zx = boundingBox.x - (zw - boundingBox.width) / 2;
+		float zy = boundingBox.y - (zh - boundingBox.height) / 2;
+
+		if (tf->trackingRect.width == 0) {
+			// initialize the trackingRect
+			tf->trackingRect = cv::Rect2f(zx, zy, zw, zh);
+		} else {
+			// interpolate the zooming box to tf->trackingRect
+			// the interpolation factor is (lostTracking) ? 0.1 : 0.5  to make the zooming box move smoothly
+			float factor = lostTracking ? 0.01f : 0.05f;
+			tf->trackingRect.x = tf->trackingRect.x +
+					     factor * (zx - tf->trackingRect.x);
+			tf->trackingRect.y = tf->trackingRect.y +
+					     factor * (zy - tf->trackingRect.y);
+			tf->trackingRect.width =
+				tf->trackingRect.width +
+				factor * (zw - tf->trackingRect.width);
+			tf->trackingRect.height =
+				tf->trackingRect.height +
+				factor * (zh - tf->trackingRect.height);
+		}
+
+		// get the settings of the crop/pad filter
+		obs_data_t *crop_pad_settings =
+			obs_source_get_settings(tf->trackingFilter);
+		obs_data_set_int(crop_pad_settings, "left",
+				 (int)tf->trackingRect.x);
+		obs_data_set_int(crop_pad_settings, "top",
+				 (int)tf->trackingRect.y);
+		// right = image width - (zx + zw)
+		obs_data_set_int(crop_pad_settings, "right",
+				 (int)(frame.cols - (tf->trackingRect.x +
+						     tf->trackingRect.width)));
+		// bottom = image height - (zy + zh)
+		obs_data_set_int(crop_pad_settings, "bottom",
+				 (int)(frame.rows - (tf->trackingRect.y +
+						     tf->trackingRect.height)));
+		// apply the settings
+		obs_source_update(tf->trackingFilter, crop_pad_settings);
+		obs_data_release(crop_pad_settings);
+	}
 }
 
 void detect_filter_video_render(void *data, gs_effect_t *_effect)
@@ -617,7 +721,33 @@ void detect_filter_video_render(void *data, gs_effect_t *_effect)
 
 	// if preview is enabled, render the image
 	if (tf->preview || tf->maskingEnabled) {
-		gs_texture_t *tex = nullptr;
+		cv::Mat outputBGRA, outputMask;
+		{
+			// lock the outputLock mutex
+			std::lock_guard<std::mutex> lock(tf->outputLock);
+			if (tf->outputPreviewBGRA.empty()) {
+				obs_log(LOG_ERROR, "Preview image is empty");
+				if (tf->source) {
+					obs_source_skip_video_filter(
+						tf->source);
+				}
+				return;
+			}
+			if ((uint32_t)tf->outputPreviewBGRA.cols != width ||
+			    (uint32_t)tf->outputPreviewBGRA.rows != height) {
+				if (tf->source) {
+					obs_source_skip_video_filter(
+						tf->source);
+				}
+				return;
+			}
+			outputBGRA = tf->outputPreviewBGRA.clone();
+			outputMask = tf->outputMask.clone();
+		}
+
+		gs_texture_t *tex = gs_texture_create(
+			width, height, GS_BGRA, 1,
+			(const uint8_t **)&outputBGRA.data, 0);
 		gs_texture_t *maskTexture = nullptr;
 		std::string technique_name = "Draw";
 		gs_eparam_t *imageParam =
@@ -627,45 +757,24 @@ void detect_filter_video_render(void *data, gs_effect_t *_effect)
 		gs_eparam_t *maskColorParam =
 			gs_effect_get_param_by_name(tf->maskingEffect, "color");
 
-		{
-			// lock the outputLock mutex
-			std::lock_guard<std::mutex> lock(tf->outputLock);
-			if (tf->outputPreviewBGRA.empty()) {
-				obs_log(LOG_ERROR, "Preview image is empty");
-				obs_source_skip_video_filter(tf->source);
-				return;
-			}
-			if ((uint32_t)tf->outputPreviewBGRA.cols != width ||
-			    (uint32_t)tf->outputPreviewBGRA.rows != height) {
-				obs_source_skip_video_filter(tf->source);
-				return;
-			}
-
-			tex = gs_texture_create(
-				width, height, GS_BGRA, 1,
-				(const uint8_t **)&tf->outputPreviewBGRA.data,
-				0);
-
-			if (tf->maskingEnabled) {
-				maskTexture = gs_texture_create(
-					width, height, GS_R8, 1,
-					(const uint8_t **)&tf->outputMask.data,
-					0);
-				gs_effect_set_texture(maskParam, maskTexture);
-				if (tf->maskingType == "output_mask") {
-					technique_name = "DrawMask";
-				} else if (tf->maskingType == "blur") {
-					gs_texture_destroy(tex);
-					tex = blur_image(tf, width, height,
-							 maskTexture);
-				} else if (tf->maskingType == "transparent") {
-					technique_name = "DrawSolidColor";
-					gs_effect_set_color(maskColorParam, 0);
-				} else if (tf->maskingType == "solid_color") {
-					technique_name = "DrawSolidColor";
-					gs_effect_set_color(maskColorParam,
-							    tf->maskingColor);
-				}
+		if (tf->maskingEnabled) {
+			maskTexture = gs_texture_create(
+				width, height, GS_R8, 1,
+				(const uint8_t **)&outputMask.data, 0);
+			gs_effect_set_texture(maskParam, maskTexture);
+			if (tf->maskingType == "output_mask") {
+				technique_name = "DrawMask";
+			} else if (tf->maskingType == "blur") {
+				gs_texture_destroy(tex);
+				tex = blur_image(tf, width, height,
+						 maskTexture);
+			} else if (tf->maskingType == "transparent") {
+				technique_name = "DrawSolidColor";
+				gs_effect_set_color(maskColorParam, 0);
+			} else if (tf->maskingType == "solid_color") {
+				technique_name = "DrawSolidColor";
+				gs_effect_set_color(maskColorParam,
+						    tf->maskingColor);
 			}
 		}
 

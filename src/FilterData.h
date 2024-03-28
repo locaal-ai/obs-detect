@@ -24,6 +24,8 @@ struct filter_data {
 	bool trackingEnabled;
 	float zoomFactor;
 	std::string zoomObject;
+	obs_source_t *trackingFilter;
+	cv::Rect2f trackingRect;
 
 	obs_source_t *source;
 	gs_texrender_t *texrender;
