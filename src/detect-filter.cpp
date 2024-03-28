@@ -646,17 +646,16 @@ void detect_filter_video_tick(void *data, float seconds)
 		float frameAspectRatio = (float)frame.cols / (float)frame.rows;
 		// calculate an aspect ratio box around the object using its height
 		float boxHeight = boundingBox.height;
-		float boxWidth = boxHeight * frameAspectRatio;
 		// calculate the zooming box size
 		// when the zoom factor is 1, the zooming box is the same size as the bounding box
 		// when the zoom factor is 10, the zooming box is the same size of the image
-		float dh = frame.rows - boxHeight;
+		float dh = (float)frame.rows - boxHeight;
 		float buffer = dh * ((tf->zoomFactor - 1) / 9);
 		float zh = boxHeight + buffer;
 		float zw = zh * frameAspectRatio;
 		// calculate the top left corner of the zooming box
-		float zx = boundingBox.x - (zw - boundingBox.width) / 2;
-		float zy = boundingBox.y - (zh - boundingBox.height) / 2;
+		float zx = boundingBox.x - (zw - boundingBox.width) / 2.0f;
+		float zy = boundingBox.y - (zh - boundingBox.height) / 2.0f;
 
 		if (tf->trackingRect.width == 0) {
 			// initialize the trackingRect
@@ -685,13 +684,15 @@ void detect_filter_video_tick(void *data, float seconds)
 		obs_data_set_int(crop_pad_settings, "top",
 				 (int)tf->trackingRect.y);
 		// right = image width - (zx + zw)
-		obs_data_set_int(crop_pad_settings, "right",
-				 (int)(frame.cols - (tf->trackingRect.x +
-						     tf->trackingRect.width)));
+		obs_data_set_int(
+			crop_pad_settings, "right",
+			(int)((float)frame.cols -
+			      (tf->trackingRect.x + tf->trackingRect.width)));
 		// bottom = image height - (zy + zh)
-		obs_data_set_int(crop_pad_settings, "bottom",
-				 (int)(frame.rows - (tf->trackingRect.y +
-						     tf->trackingRect.height)));
+		obs_data_set_int(
+			crop_pad_settings, "bottom",
+			(int)((float)frame.rows -
+			      (tf->trackingRect.y + tf->trackingRect.height)));
 		// apply the settings
 		obs_source_update(tf->trackingFilter, crop_pad_settings);
 		obs_data_release(crop_pad_settings);
