@@ -31,7 +31,7 @@ extern struct obs_source_info detect_filter_info;
 
 bool obs_module_load(void)
 {
-    obs_register_source(&detect_filter_info);
+	obs_register_source(&detect_filter_info);
 	obs_log(LOG_INFO, "plugin loaded successfully (version %s)",
 		PLUGIN_VERSION);
 	return true;

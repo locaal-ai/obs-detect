@@ -117,7 +117,7 @@ obs_properties_t *detect_filter_properties(void *data)
 		const std::string &class_name = edgeyolo_cpp::COCO_CLASSES[i];
 		// captilaze the first letter of the class name
 		std::string class_name_cap = class_name;
-		class_name_cap[0] = std::toupper((int)class_name_cap[0]);
+		class_name_cap[0] = (char)std::toupper((int)class_name_cap[0]);
 		obs_property_list_add_int(object_category,
 					  class_name_cap.c_str(), (int)i);
 	}
