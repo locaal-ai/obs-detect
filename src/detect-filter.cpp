@@ -117,7 +117,7 @@ obs_properties_t *detect_filter_properties(void *data)
 		const std::string &class_name = edgeyolo_cpp::COCO_CLASSES[i];
 		// captilaze the first letter of the class name
 		std::string class_name_cap = class_name;
-		class_name_cap[0] = std::toupper(class_name_cap[0]);
+		class_name_cap[0] = std::toupper((int)class_name_cap[0]);
 		obs_property_list_add_int(object_category,
 					  class_name_cap.c_str(), (int)i);
 	}
@@ -130,17 +130,17 @@ obs_properties_t *detect_filter_properties(void *data)
 
 	// add callback to show/hide masking options
 	obs_property_set_modified_callback(
-		masking_group_prop, [](obs_properties_t *props,
+		masking_group_prop, [](obs_properties_t *props_,
 				       obs_property_t *, obs_data_t *settings) {
 			const bool enabled =
 				obs_data_get_bool(settings, "masking_group");
 			obs_property_t *prop =
-				obs_properties_get(props, "masking_type");
+				obs_properties_get(props_, "masking_type");
 			obs_property_set_visible(prop, enabled);
 			obs_property_t *masking_color =
-				obs_properties_get(props, "masking_color");
+				obs_properties_get(props_, "masking_color");
 			obs_property_t *masking_blur_radius =
-				obs_properties_get(props,
+				obs_properties_get(props_,
 						   "masking_blur_radius");
 			if (enabled) {
 				const char *masking_type = obs_data_get_string(
@@ -195,20 +195,20 @@ obs_properties_t *detect_filter_properties(void *data)
 
 	// add callback to show/hide blur radius and color picker
 	obs_property_set_modified_callback(
-		masking_type, [](obs_properties_t *props, obs_property_t *,
+		masking_type, [](obs_properties_t *props_, obs_property_t *,
 				 obs_data_t *settings) {
-			const char *masking_type =
+			const char *masking_type_value =
 				obs_data_get_string(settings, "masking_type");
 			obs_property_t *masking_color =
-				obs_properties_get(props, "masking_color");
+				obs_properties_get(props_, "masking_color");
 			obs_property_t *masking_blur_radius =
-				obs_properties_get(props,
+				obs_properties_get(props_,
 						   "masking_blur_radius");
-			if (strcmp(masking_type, "solid_color") == 0) {
+			if (strcmp(masking_type_value, "solid_color") == 0) {
 				obs_property_set_visible(masking_color, true);
 				obs_property_set_visible(masking_blur_radius,
 							 false);
-			} else if (strcmp(masking_type, "blur") == 0) {
+			} else if (strcmp(masking_type_value, "blur") == 0) {
 				obs_property_set_visible(masking_color, false);
 				obs_property_set_visible(masking_blur_radius,
 							 true);
@@ -229,13 +229,13 @@ obs_properties_t *detect_filter_properties(void *data)
 
 	// add callback to show/hide tracking options
 	obs_property_set_modified_callback(
-		tracking_group, [](obs_properties_t *props, obs_property_t *,
+		tracking_group, [](obs_properties_t *props_, obs_property_t *,
 				   obs_data_t *settings) {
 			const bool enabled =
 				obs_data_get_bool(settings, "tracking_group");
 			for (auto prop_name : {"zoom_factor", "zoom_object"}) {
 				obs_property_t *prop =
-					obs_properties_get(props, prop_name);
+					obs_properties_get(props_, prop_name);
 				obs_property_set_visible(prop, enabled);
 			}
 			return true;

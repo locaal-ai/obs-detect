@@ -50,8 +50,8 @@ draw_objects(cv::Mat bgr, const std::vector<Object> &objects,
 		cv::rectangle(bgr, obj.rect, color * 255, 2);
 
 		char text[256];
-		snprintf(text, sizeof(text), "%s %.1f%%", class_names[obj.label].c_str(),
-			obj.prob * 100);
+		snprintf(text, sizeof(text), "%s %.1f%%",
+			 class_names[obj.label].c_str(), obj.prob * 100);
 
 		int baseLine = 0;
 		cv::Size label_size = cv::getTextSize(
