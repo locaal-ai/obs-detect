@@ -59,6 +59,11 @@ if(APPLE)
   target_sources(${CMAKE_PROJECT_NAME} PRIVATE "${Onnxruntime_LIB}")
   set_property(SOURCE "${Onnxruntime_LIB}" PROPERTY MACOSX_PACKAGE_LOCATION Frameworks)
   source_group("Frameworks" FILES "${Onnxruntime_LIB}")
+  # add a codesigning step
+  add_custom_command(
+    TARGET "${CMAKE_PROJECT_NAME}"
+    POST_BUILD
+    COMMAND /usr/bin/codesign --force --verify --verbose --sign "${CODESIGN_IDENTITY}" "${Onnxruntime_LIB}")
   add_custom_command(
     TARGET "${CMAKE_PROJECT_NAME}"
     POST_BUILD
@@ -101,10 +106,10 @@ else()
     set(Onnxruntime_INSTALL_LIBS ${Onnxruntime_LINK_LIBS})
   else()
     set(Onnxruntime_LINK_LIBS "${onnxruntime_SOURCE_DIR}/lib/libonnxruntime.so.${Onnxruntime_VERSION}")
-    set(Onnxruntime_INSTALL_LIBS
-        ${Onnxruntime_LINK_LIBS} "${onnxruntime_SOURCE_DIR}/lib/libonnxruntime_providers_shared.so"
-        "${onnxruntime_SOURCE_DIR}/lib/libonnxruntime_providers_cuda.so"
-        "${onnxruntime_SOURCE_DIR}/lib/libonnxruntime_providers_tensorrt.so")
+    set(Onnxruntime_INSTALL_LIBS ${Onnxruntime_LINK_LIBS}
+                                 "${onnxruntime_SOURCE_DIR}/lib/libonnxruntime_providers_shared.so")
+    # TODO add other providers "${onnxruntime_SOURCE_DIR}/lib/libonnxruntime_providers_cuda.so"
+    # "${onnxruntime_SOURCE_DIR}/lib/libonnxruntime_providers_tensorrt.so"
   endif()
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${Onnxruntime_LINK_LIBS})
   target_include_directories(${CMAKE_PROJECT_NAME} SYSTEM PUBLIC "${onnxruntime_SOURCE_DIR}/include")
