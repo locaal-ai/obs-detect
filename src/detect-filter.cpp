@@ -130,9 +130,8 @@ obs_properties_t *detect_filter_properties(void *data)
 
 	// add callback to show/hide masking options
 	obs_property_set_modified_callback(
-		masking_group_prop,
-		[](obs_properties_t *props, obs_property_t *p,
-		   obs_data_t *settings) {
+		masking_group_prop, [](obs_properties_t *props,
+				       obs_property_t *, obs_data_t *settings) {
 			const bool enabled =
 				obs_data_get_bool(settings, "masking_group");
 			obs_property_t *prop =
@@ -186,18 +185,17 @@ obs_properties_t *detect_filter_properties(void *data)
 		masking_type, obs_module_text("Transparent"), "transparent");
 
 	// add color picker for solid color masking
-	obs_property_t *masking_color =
-		obs_properties_add_color(masking_group, "masking_color",
-					 obs_module_text("MaskingColor"));
+	obs_properties_add_color(masking_group, "masking_color",
+				 obs_module_text("MaskingColor"));
 
 	// add slider for blur radius
-	obs_property_t *masking_blur_radius = obs_properties_add_int_slider(
-		masking_group, "masking_blur_radius",
-		obs_module_text("MaskingBlurRadius"), 1, 30, 1);
+	obs_properties_add_int_slider(masking_group, "masking_blur_radius",
+				      obs_module_text("MaskingBlurRadius"), 1,
+				      30, 1);
 
 	// add callback to show/hide blur radius and color picker
 	obs_property_set_modified_callback(
-		masking_type, [](obs_properties_t *props, obs_property_t *p,
+		masking_type, [](obs_properties_t *props, obs_property_t *,
 				 obs_data_t *settings) {
 			const char *masking_type =
 				obs_data_get_string(settings, "masking_type");
@@ -231,7 +229,7 @@ obs_properties_t *detect_filter_properties(void *data)
 
 	// add callback to show/hide tracking options
 	obs_property_set_modified_callback(
-		tracking_group, [](obs_properties_t *props, obs_property_t *p,
+		tracking_group, [](obs_properties_t *props, obs_property_t *,
 				   obs_data_t *settings) {
 			const bool enabled =
 				obs_data_get_bool(settings, "tracking_group");
@@ -244,9 +242,9 @@ obs_properties_t *detect_filter_properties(void *data)
 		});
 
 	// add zoom factor slider
-	obs_property_t *zoom_factor = obs_properties_add_float_slider(
-		tracking_group_props, "zoom_factor",
-		obs_module_text("ZoomFactor"), 1.0, 10.0, 0.1);
+	obs_properties_add_float_slider(tracking_group_props, "zoom_factor",
+					obs_module_text("ZoomFactor"), 1.0,
+					10.0, 0.1);
 
 	// add object selection for zoom drop down: "Single", "All"
 	obs_property_t *zoom_object = obs_properties_add_list(

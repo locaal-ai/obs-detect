@@ -50,7 +50,7 @@ draw_objects(cv::Mat bgr, const std::vector<Object> &objects,
 		cv::rectangle(bgr, obj.rect, color * 255, 2);
 
 		char text[256];
-		sprintf(text, "%s %.1f%%", class_names[obj.label].c_str(),
+		snprintf(text, sizeof(text), "%s %.1f%%", class_names[obj.label].c_str(),
 			obj.prob * 100);
 
 		int baseLine = 0;

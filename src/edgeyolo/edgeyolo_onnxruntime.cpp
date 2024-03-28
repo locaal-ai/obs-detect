@@ -34,13 +34,13 @@ EdgeYOLOONNXRuntime::EdgeYOLOONNXRuntime(
 		session_options.SetIntraOpNumThreads(
 			this->intra_op_num_threads_);
 
+#ifdef _WIN32
 		if (this->use_gpu == "cuda") {
 			OrtCUDAProviderOptions cuda_option;
 			cuda_option.device_id = this->device_id_;
 			session_options.AppendExecutionProvider_CUDA(
 				cuda_option);
 		}
-#ifdef _WIN32
 		if (this->use_gpu == "dml") {
 			auto &api = Ort::GetApi();
 			OrtDmlApi *dmlApi = nullptr;
@@ -53,8 +53,8 @@ EdgeYOLOONNXRuntime::EdgeYOLOONNXRuntime(
 		}
 #endif
 
-		this->session_ = Ort::Session::Session(
-			this->env_, path_to_model.c_str(), session_options);
+		this->session_ = Ort::Session(this->env_, path_to_model.c_str(),
+					      session_options);
 	} catch (std::exception &e) {
 		std::cerr << e.what() << std::endl;
 		throw e;
