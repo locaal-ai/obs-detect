@@ -118,6 +118,7 @@ jobs:
         id: codesign
         with:
           codesignIdentity: ${{ secrets.MACOS_SIGNING_APPLICATION_IDENTITY }}
+          codesignTeam: ${{ secrets.MACOS_SIGNING_APPLICATION_TEAM }}
           installerIdentity: ${{ secrets.MACOS_SIGNING_INSTALLER_IDENTITY }}
           codesignCertificate: ${{ secrets.MACOS_SIGNING_CERT }}
           certificatePassword: ${{ secrets.MACOS_SIGNING_CERT_PASSWORD }}

@@ -4,6 +4,9 @@ inputs:
   codesignIdentity:
     description: Codesigning identity
     required: true
+  codesignTeam:
+    description: Codesigning team
+    required: true
   installerIdentity:
     description: Codesigning identity for package installer
     required: false
@@ -59,6 +62,7 @@ runs:
       id: codesign
       env:
         MACOS_SIGNING_IDENTITY: ${{ inputs.codesignIdentity }}
+        MACOS_SIGNING_TEAM: ${{ inputs.codesignTeam }}
         MACOS_SIGNING_IDENTITY_INSTALLER: ${{ inputs.installerIdentity}}
         MACOS_SIGNING_CERT: ${{ inputs.codesignCertificate }}
         MAOCS_SIGNING_CERT_PASSWORD: ${{ inputs.certificatePassword }}
@@ -92,12 +96,10 @@ runs:
           security list-keychain -d user -s ${keychain_path} 'login-keychain'
           print '::endgroup::'
 
-          local -r team_id="${${MACOS_SIGNING_IDENTITY##* }//(\(|\))/}"
-
           print "codesignIdent=${MACOS_SIGNING_IDENTITY}" >> $GITHUB_OUTPUT
           print "installerIdent=${MACOS_SIGNING_IDENTITY_INSTALLER}" >> $GITHUB_OUTPUT
           print "MACOS_KEYCHAIN_PASSWORD=${MACOS_KEYCHAIN_PASSWORD}" >> $GITHUB_ENV
-          print "codesignTeam=${team_id}" >> $GITHUB_OUTPUT
+          print "codesignTeam=${MACOS_SIGNING_TEAM}" >> $GITHUB_OUTPUT
         } else {
           print 'haveCodesignIdent=false' >> $GITHUB_OUTPUT
         }
