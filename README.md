@@ -21,7 +21,12 @@ This work uses the great contributions from [EdgeYOLO-ROS](https://github.com/fa
 
 ## Usage
 
-- Add the "Detect" filter to any source with an image
+<div align="center">
+<a href="https://youtu.be/LrbUrvaGreQ"><img width="40%" src="https://github.com/occ-ai/obs-detect/assets/441170/b8e7367e-c1b0-4c7e-b0df-af45ead87199" /></a><br/>
+  (2 Minute)
+</div>
+
+- Add the "Detect" filter to any source with an image (Media, Browser, VLC, Image, etc.)
 - Enable "Masking" or "Tracking"
 
 Use Detect to track your pet, or blur out people in your video!
