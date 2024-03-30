@@ -113,13 +113,27 @@ obs_properties_t *detect_filter_properties(void *data)
 		props, "object_category", obs_module_text("ObjectCategory"),
 		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_list_add_int(object_category, obs_module_text("All"), -1);
+	std::vector<std::pair<size_t, std::string>> indexed_classes;
 	for (size_t i = 0; i < edgeyolo_cpp::COCO_CLASSES.size(); ++i) {
 		const std::string &class_name = edgeyolo_cpp::COCO_CLASSES[i];
-		// captilaze the first letter of the class name
+		// capitalize the first letter of the class name
 		std::string class_name_cap = class_name;
 		class_name_cap[0] = (char)std::toupper((int)class_name_cap[0]);
+		indexed_classes.push_back({i, class_name_cap});
+	}
+
+	// sort the vector based on the class names
+	std::sort(indexed_classes.begin(), indexed_classes.end(),
+		  [](const std::pair<size_t, std::string> &a,
+		     const std::pair<size_t, std::string> &b) {
+			  return a.second < b.second;
+		  });
+
+	// add the sorted classes to the property list
+	for (const auto &indexed_class : indexed_classes) {
 		obs_property_list_add_int(object_category,
-					  class_name_cap.c_str(), (int)i);
+					  indexed_class.second.c_str(),
+					  (int)indexed_class.first);
 	}
 
 	// options group for masking
@@ -185,6 +199,8 @@ obs_properties_t *detect_filter_properties(void *data)
 	obs_property_set_modified_callback(
 		masking_type, [](obs_properties_t *props_, obs_property_t *,
 				 obs_data_t *settings) {
+			const bool masking_enabled =
+				obs_data_get_bool(settings, "masking_group");
 			const char *masking_type_value =
 				obs_data_get_string(settings, "masking_type");
 			obs_property_t *masking_color =
@@ -195,11 +211,16 @@ obs_properties_t *detect_filter_properties(void *data)
 			obs_property_set_visible(masking_color, false);
 			obs_property_set_visible(masking_blur_radius, false);
 
-			if (strcmp(masking_type_value, "solid_color") == 0) {
-				obs_property_set_visible(masking_color, true);
-			} else if (strcmp(masking_type_value, "blur") == 0) {
-				obs_property_set_visible(masking_blur_radius,
-							 true);
+			if (masking_enabled) {
+				if (strcmp(masking_type_value, "solid_color") ==
+				    0) {
+					obs_property_set_visible(masking_color,
+								 true);
+				} else if (strcmp(masking_type_value, "blur") ==
+					   0) {
+					obs_property_set_visible(
+						masking_blur_radius, true);
+				}
 			}
 			return true;
 		});
