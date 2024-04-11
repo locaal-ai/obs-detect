@@ -17,9 +17,8 @@ namespace edgeyolo_cpp {
 class EdgeYOLOONNXRuntime : public AbcEdgeYOLO {
 public:
 	EdgeYOLOONNXRuntime(file_name_t path_to_model, int intra_op_num_threads,
-			    int inter_op_num_threads = 1,
-			    const std::string &use_gpu_ = "", int device_id = 0,
-			    bool use_parallel = false, float nms_th = 0.45f,
+			    int inter_op_num_threads = 1, const std::string &use_gpu_ = "",
+			    int device_id = 0, bool use_parallel = false, float nms_th = 0.45f,
 			    float conf_th = 0.3f, int num_classes = 80);
 	std::vector<Object> inference(const cv::Mat &frame) override;
 

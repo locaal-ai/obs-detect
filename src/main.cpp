@@ -7,9 +7,8 @@
 
 #include <opencv2/core.hpp>
 
-cv::Mat colorImageCallback(
-	const cv::Mat &frame,
-	std::unique_ptr<edgeyolo_cpp::EdgeYOLOONNXRuntime> &edgeyolo_)
+cv::Mat colorImageCallback(const cv::Mat &frame,
+			   std::unique_ptr<edgeyolo_cpp::EdgeYOLOONNXRuntime> &edgeyolo_)
 {
 	// fps
 	auto now = std::chrono::system_clock::now();
@@ -17,8 +16,7 @@ cv::Mat colorImageCallback(
 	auto objects = edgeyolo_->inference(frame);
 
 	auto end = std::chrono::system_clock::now();
-	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-		end - now);
+	auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - now);
 	printf("Inference: %f FPS\n", 1000.0f / elapsed.count());
 	printf("OBJECTS: %ld\n", objects.size());
 
@@ -36,8 +34,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
-	std::wstring model_path_ =
-		std::wstring(argv[1], argv[1] + strlen(argv[1]));
+	std::wstring model_path_ = std::wstring(argv[1], argv[1] + strlen(argv[1]));
 
 	// parameters
 	int onnxruntime_intra_op_num_threads_ = 4;
@@ -51,9 +48,8 @@ int main(int argc, char **argv)
 
 	// Load model
 	auto edgeyolo_ = std::make_unique<edgeyolo_cpp::EdgeYOLOONNXRuntime>(
-		model_path_, onnxruntime_intra_op_num_threads_,
-		onnxruntime_inter_op_num_threads_, onnxruntime_use_cuda_,
-		onnxruntime_device_id_, onnxruntime_use_parallel_, nms_th_,
+		model_path_, onnxruntime_intra_op_num_threads_, onnxruntime_inter_op_num_threads_,
+		onnxruntime_use_cuda_, onnxruntime_device_id_, onnxruntime_use_parallel_, nms_th_,
 		conf_th_, num_classes_);
 
 	cv::VideoCapture cap("wqctLW0Hb_0.mp4");
