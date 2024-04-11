@@ -34,8 +34,8 @@ const char *detect_filter_getname(void *unused)
 
 /**                   PROPERTIES                     */
 
-static bool visible_on_bool(obs_properties_t *ppts, obs_data_t *settings,
-			    const char *bool_prop, const char *prop_name)
+static bool visible_on_bool(obs_properties_t *ppts, obs_data_t *settings, const char *bool_prop,
+			    const char *prop_name)
 {
 	const bool enabled = obs_data_get_bool(settings, bool_prop);
 	obs_property_t *p = obs_properties_get(ppts, prop_name);
@@ -48,8 +48,8 @@ static bool enable_advanced_settings(obs_properties_t *ppts, obs_property_t *p,
 {
 	const bool enabled = obs_data_get_bool(settings, "advanced");
 
-	for (const char *prop_name : {"threshold", "useGPU", "numThreads",
-				      "model_size", "detected_object"}) {
+	for (const char *prop_name :
+	     {"threshold", "useGPU", "numThreads", "model_size", "detected_object"}) {
 		p = obs_properties_get(ppts, prop_name);
 		obs_property_set_visible(p, enabled);
 	}
@@ -64,9 +64,9 @@ obs_properties_t *detect_filter_properties(void *data)
 	obs_properties_add_bool(props, "preview", obs_module_text("Preview"));
 
 	// add dropdown selection for object category selection: "All", or COCO classes
-	obs_property_t *object_category = obs_properties_add_list(
-		props, "object_category", obs_module_text("ObjectCategory"),
-		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+	obs_property_t *object_category =
+		obs_properties_add_list(props, "object_category", obs_module_text("ObjectCategory"),
+					OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_list_add_int(object_category, obs_module_text("All"), -1);
 	std::vector<std::pair<size_t, std::string>> indexed_classes;
 	for (size_t i = 0; i < edgeyolo_cpp::COCO_CLASSES.size(); ++i) {
@@ -80,101 +80,77 @@ obs_properties_t *detect_filter_properties(void *data)
 	// sort the vector based on the class names
 	std::sort(indexed_classes.begin(), indexed_classes.end(),
 		  [](const std::pair<size_t, std::string> &a,
-		     const std::pair<size_t, std::string> &b) {
-			  return a.second < b.second;
-		  });
+		     const std::pair<size_t, std::string> &b) { return a.second < b.second; });
 
 	// add the sorted classes to the property list
 	for (const auto &indexed_class : indexed_classes) {
-		obs_property_list_add_int(object_category,
-					  indexed_class.second.c_str(),
+		obs_property_list_add_int(object_category, indexed_class.second.c_str(),
 					  (int)indexed_class.first);
 	}
 
 	// options group for masking
 	obs_properties_t *masking_group = obs_properties_create();
-	obs_property_t *masking_group_prop = obs_properties_add_group(
-		props, "masking_group", obs_module_text("MaskingGroup"),
-		OBS_GROUP_CHECKABLE, masking_group);
+	obs_property_t *masking_group_prop =
+		obs_properties_add_group(props, "masking_group", obs_module_text("MaskingGroup"),
+					 OBS_GROUP_CHECKABLE, masking_group);
 
 	// add callback to show/hide masking options
-	obs_property_set_modified_callback(
-		masking_group_prop, [](obs_properties_t *props_,
-				       obs_property_t *, obs_data_t *settings) {
-			const bool enabled =
-				obs_data_get_bool(settings, "masking_group");
-			obs_property_t *prop =
-				obs_properties_get(props_, "masking_type");
-			obs_property_t *masking_color =
-				obs_properties_get(props_, "masking_color");
-			obs_property_t *masking_blur_radius =
-				obs_properties_get(props_,
-						   "masking_blur_radius");
+	obs_property_set_modified_callback(masking_group_prop, [](obs_properties_t *props_,
+								  obs_property_t *,
+								  obs_data_t *settings) {
+		const bool enabled = obs_data_get_bool(settings, "masking_group");
+		obs_property_t *prop = obs_properties_get(props_, "masking_type");
+		obs_property_t *masking_color = obs_properties_get(props_, "masking_color");
+		obs_property_t *masking_blur_radius =
+			obs_properties_get(props_, "masking_blur_radius");
 
-			obs_property_set_visible(prop, enabled);
-			obs_property_set_visible(masking_color, false);
-			obs_property_set_visible(masking_blur_radius, false);
-			const char *masking_type_value =
-				obs_data_get_string(settings, "masking_type");
-			if (strcmp(masking_type_value, "solid_color") == 0) {
-				obs_property_set_visible(masking_color,
-							 enabled);
-			} else if (strcmp(masking_type_value, "blur") == 0) {
-				obs_property_set_visible(masking_blur_radius,
-							 enabled);
-			}
-			return true;
-		});
+		obs_property_set_visible(prop, enabled);
+		obs_property_set_visible(masking_color, false);
+		obs_property_set_visible(masking_blur_radius, false);
+		const char *masking_type_value = obs_data_get_string(settings, "masking_type");
+		if (strcmp(masking_type_value, "solid_color") == 0) {
+			obs_property_set_visible(masking_color, enabled);
+		} else if (strcmp(masking_type_value, "blur") == 0) {
+			obs_property_set_visible(masking_blur_radius, enabled);
+		}
+		return true;
+	});
 
 	// add masking options drop down selection: "None", "Solid color", "Blur", "Transparent"
-	obs_property_t *masking_type = obs_properties_add_list(
-		masking_group, "masking_type", obs_module_text("MaskingType"),
-		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
-	obs_property_list_add_string(masking_type, obs_module_text("None"),
-				     "none");
-	obs_property_list_add_string(
-		masking_type, obs_module_text("SolidColor"), "solid_color");
-	obs_property_list_add_string(
-		masking_type, obs_module_text("OutputMask"), "output_mask");
-	obs_property_list_add_string(masking_type, obs_module_text("Blur"),
-				     "blur");
-	obs_property_list_add_string(
-		masking_type, obs_module_text("Transparent"), "transparent");
+	obs_property_t *masking_type = obs_properties_add_list(masking_group, "masking_type",
+							       obs_module_text("MaskingType"),
+							       OBS_COMBO_TYPE_LIST,
+							       OBS_COMBO_FORMAT_STRING);
+	obs_property_list_add_string(masking_type, obs_module_text("None"), "none");
+	obs_property_list_add_string(masking_type, obs_module_text("SolidColor"), "solid_color");
+	obs_property_list_add_string(masking_type, obs_module_text("OutputMask"), "output_mask");
+	obs_property_list_add_string(masking_type, obs_module_text("Blur"), "blur");
+	obs_property_list_add_string(masking_type, obs_module_text("Transparent"), "transparent");
 
 	// add color picker for solid color masking
-	obs_properties_add_color(masking_group, "masking_color",
-				 obs_module_text("MaskingColor"));
+	obs_properties_add_color(masking_group, "masking_color", obs_module_text("MaskingColor"));
 
 	// add slider for blur radius
 	obs_properties_add_int_slider(masking_group, "masking_blur_radius",
-				      obs_module_text("MaskingBlurRadius"), 1,
-				      30, 1);
+				      obs_module_text("MaskingBlurRadius"), 1, 30, 1);
 
 	// add callback to show/hide blur radius and color picker
 	obs_property_set_modified_callback(
-		masking_type, [](obs_properties_t *props_, obs_property_t *,
-				 obs_data_t *settings) {
-			const bool masking_enabled =
-				obs_data_get_bool(settings, "masking_group");
+		masking_type, [](obs_properties_t *props_, obs_property_t *, obs_data_t *settings) {
+			const bool masking_enabled = obs_data_get_bool(settings, "masking_group");
 			const char *masking_type_value =
 				obs_data_get_string(settings, "masking_type");
-			obs_property_t *masking_color =
-				obs_properties_get(props_, "masking_color");
+			obs_property_t *masking_color = obs_properties_get(props_, "masking_color");
 			obs_property_t *masking_blur_radius =
-				obs_properties_get(props_,
-						   "masking_blur_radius");
+				obs_properties_get(props_, "masking_blur_radius");
 			obs_property_set_visible(masking_color, false);
 			obs_property_set_visible(masking_blur_radius, false);
 
 			if (masking_enabled) {
-				if (strcmp(masking_type_value, "solid_color") ==
-				    0) {
-					obs_property_set_visible(masking_color,
-								 true);
-				} else if (strcmp(masking_type_value, "blur") ==
-					   0) {
-					obs_property_set_visible(
-						masking_blur_radius, true);
+				if (strcmp(masking_type_value, "solid_color") == 0) {
+					obs_property_set_visible(masking_color, true);
+				} else if (strcmp(masking_type_value, "blur") == 0) {
+					obs_property_set_visible(masking_blur_radius, true);
 				}
 			}
 			return true;
@@ -183,103 +159,82 @@ obs_properties_t *detect_filter_properties(void *data)
 	// add options group for tracking and zoom-follow options
 	obs_properties_t *tracking_group_props = obs_properties_create();
 	obs_property_t *tracking_group = obs_properties_add_group(
-		props, "tracking_group",
-		obs_module_text("TrackingZoomFollowGroup"), OBS_GROUP_CHECKABLE,
-		tracking_group_props);
+		props, "tracking_group", obs_module_text("TrackingZoomFollowGroup"),
+		OBS_GROUP_CHECKABLE, tracking_group_props);
 
 	// add callback to show/hide tracking options
-	obs_property_set_modified_callback(
-		tracking_group, [](obs_properties_t *props_, obs_property_t *,
-				   obs_data_t *settings) {
-			const bool enabled =
-				obs_data_get_bool(settings, "tracking_group");
-			for (auto prop_name : {"zoom_factor", "zoom_object",
-					       "zoom_speed_factor"}) {
-				obs_property_t *prop =
-					obs_properties_get(props_, prop_name);
-				obs_property_set_visible(prop, enabled);
-			}
-			return true;
-		});
+	obs_property_set_modified_callback(tracking_group, [](obs_properties_t *props_,
+							      obs_property_t *,
+							      obs_data_t *settings) {
+		const bool enabled = obs_data_get_bool(settings, "tracking_group");
+		for (auto prop_name : {"zoom_factor", "zoom_object", "zoom_speed_factor"}) {
+			obs_property_t *prop = obs_properties_get(props_, prop_name);
+			obs_property_set_visible(prop, enabled);
+		}
+		return true;
+	});
 
 	// add zoom factor slider
 	obs_properties_add_float_slider(tracking_group_props, "zoom_factor",
-					obs_module_text("ZoomFactor"), 0.0, 1.0,
-					0.05);
+					obs_module_text("ZoomFactor"), 0.0, 1.0, 0.05);
 
-	obs_properties_add_float_slider(tracking_group_props,
-					"zoom_speed_factor",
-					obs_module_text("ZoomSpeed"), 0.0, 0.1,
-					0.01);
+	obs_properties_add_float_slider(tracking_group_props, "zoom_speed_factor",
+					obs_module_text("ZoomSpeed"), 0.0, 0.1, 0.01);
 
 	// add object selection for zoom drop down: "Single", "All"
-	obs_property_t *zoom_object = obs_properties_add_list(
-		tracking_group_props, "zoom_object",
-		obs_module_text("ZoomObject"), OBS_COMBO_TYPE_LIST,
-		OBS_COMBO_FORMAT_STRING);
-	obs_property_list_add_string(zoom_object,
-				     obs_module_text("SingleFirst"), "single");
-	obs_property_list_add_string(zoom_object, obs_module_text("All"),
-				     "all");
+	obs_property_t *zoom_object = obs_properties_add_list(tracking_group_props, "zoom_object",
+							      obs_module_text("ZoomObject"),
+							      OBS_COMBO_TYPE_LIST,
+							      OBS_COMBO_FORMAT_STRING);
+	obs_property_list_add_string(zoom_object, obs_module_text("SingleFirst"), "single");
+	obs_property_list_add_string(zoom_object, obs_module_text("All"), "all");
 
-	obs_property_t *advanced = obs_properties_add_bool(
-		props, "advanced", obs_module_text("Advanced"));
+	obs_property_t *advanced =
+		obs_properties_add_bool(props, "advanced", obs_module_text("Advanced"));
 
 	// If advanced is selected show the advanced settings, otherwise hide them
 	obs_property_set_modified_callback(advanced, enable_advanced_settings);
 
 	// add a text input for the currently detected object
-	obs_properties_add_text(props, "detected_object",
-				obs_module_text("DetectedObject"),
+	obs_properties_add_text(props, "detected_object", obs_module_text("DetectedObject"),
 				OBS_TEXT_DEFAULT);
 	// disable the text input by default
-	obs_property_set_enabled(obs_properties_get(props, "detected_object"),
-				 false);
+	obs_property_set_enabled(obs_properties_get(props, "detected_object"), false);
 
 	// add threshold slider
-	obs_properties_add_float_slider(props, "threshold",
-					obs_module_text("ConfThreshold"), 0.0,
+	obs_properties_add_float_slider(props, "threshold", obs_module_text("ConfThreshold"), 0.0,
 					1.0, 0.025);
 
 	/* GPU, CPU and performance Props */
-	obs_property_t *p_use_gpu = obs_properties_add_list(
-		props, "useGPU", obs_module_text("InferenceDevice"),
-		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+	obs_property_t *p_use_gpu =
+		obs_properties_add_list(props, "useGPU", obs_module_text("InferenceDevice"),
+					OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
 
-	obs_property_list_add_string(p_use_gpu, obs_module_text("CPU"),
-				     USEGPU_CPU);
+	obs_property_list_add_string(p_use_gpu, obs_module_text("CPU"), USEGPU_CPU);
 #if defined(__linux__) && defined(__x86_64__)
-	obs_property_list_add_string(p_use_gpu, obs_module_text("GPUTensorRT"),
-				     USEGPU_TENSORRT);
+	obs_property_list_add_string(p_use_gpu, obs_module_text("GPUTensorRT"), USEGPU_TENSORRT);
 #endif
 #if _WIN32
-	obs_property_list_add_string(p_use_gpu, obs_module_text("GPUDirectML"),
-				     USEGPU_DML);
+	obs_property_list_add_string(p_use_gpu, obs_module_text("GPUDirectML"), USEGPU_DML);
 #endif
 #if defined(__APPLE__)
-	obs_property_list_add_string(p_use_gpu, obs_module_text("CoreML"),
-				     USEGPU_COREML);
+	obs_property_list_add_string(p_use_gpu, obs_module_text("CoreML"), USEGPU_COREML);
 #endif
 
-	obs_properties_add_int_slider(props, "numThreads",
-				      obs_module_text("NumThreads"), 0, 8, 1);
+	obs_properties_add_int_slider(props, "numThreads", obs_module_text("NumThreads"), 0, 8, 1);
 
 	// add drop down option for model size: Small, Medium, Large
-	obs_property_t *model_size = obs_properties_add_list(
-		props, "model_size", obs_module_text("ModelSize"),
-		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
-	obs_property_list_add_string(model_size, obs_module_text("SmallFast"),
-				     "small");
-	obs_property_list_add_string(model_size, obs_module_text("Medium"),
-				     "medium");
-	obs_property_list_add_string(model_size, obs_module_text("LargeSlow"),
-				     "large");
+	obs_property_t *model_size =
+		obs_properties_add_list(props, "model_size", obs_module_text("ModelSize"),
+					OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+	obs_property_list_add_string(model_size, obs_module_text("SmallFast"), "small");
+	obs_property_list_add_string(model_size, obs_module_text("Medium"), "medium");
+	obs_property_list_add_string(model_size, obs_module_text("LargeSlow"), "large");
 
 	// Add a informative text about the plugin
-	std::string basic_info = std::regex_replace(
-		PLUGIN_INFO_TEMPLATE, std::regex("%1"), PLUGIN_VERSION);
-	obs_properties_add_text(props, "info", basic_info.c_str(),
-				OBS_TEXT_INFO);
+	std::string basic_info =
+		std::regex_replace(PLUGIN_INFO_TEMPLATE, std::regex("%1"), PLUGIN_VERSION);
+	obs_properties_add_text(props, "info", basic_info.c_str(), OBS_TEXT_INFO);
 
 	UNUSED_PARAMETER(data);
 	return props;
@@ -313,7 +268,6 @@ void detect_filter_defaults(obs_data_t *settings)
 
 void detect_filter_update(void *data, obs_data_t *settings)
 {
-	obs_log(LOG_INFO, "Detect filter updated");
 	struct detect_filter *tf = reinterpret_cast<detect_filter *>(data);
 
 	tf->isDisabled = true;
@@ -324,80 +278,85 @@ void detect_filter_update(void *data, obs_data_t *settings)
 	tf->maskingEnabled = obs_data_get_bool(settings, "masking_group");
 	tf->maskingType = obs_data_get_string(settings, "masking_type");
 	tf->maskingColor = (int)obs_data_get_int(settings, "masking_color");
-	tf->maskingBlurRadius =
-		(int)obs_data_get_int(settings, "masking_blur_radius");
-	tf->trackingEnabled = obs_data_get_bool(settings, "tracking_group");
+	tf->maskingBlurRadius = (int)obs_data_get_int(settings, "masking_blur_radius");
+	bool newTrackingEnabled = obs_data_get_bool(settings, "tracking_group");
 	tf->zoomFactor = (float)obs_data_get_double(settings, "zoom_factor");
-	tf->zoomSpeedFactor =
-		(float)obs_data_get_double(settings, "zoom_speed_factor");
+	tf->zoomSpeedFactor = (float)obs_data_get_double(settings, "zoom_speed_factor");
 	tf->zoomObject = obs_data_get_string(settings, "zoom_object");
 
-	obs_source_t *parent = obs_filter_get_parent(tf->source);
-	if (tf->trackingEnabled) {
-		obs_log(LOG_INFO, "Tracking enabled");
-		// get the parent of the source
-		// check if it has a crop/pad filter
-		obs_source_t *crop_pad_filter = obs_source_get_filter_by_name(
-			parent, "Detect Tracking");
-		if (!crop_pad_filter) {
-			// create a crop-pad filter
-			crop_pad_filter = obs_source_create("crop_filter",
-							    "Detect Tracking",
-							    nullptr, nullptr);
-			// add a crop/pad filter to the source
-			// set the parent of the crop/pad filter to the parent of the source
-			obs_source_filter_add(parent, crop_pad_filter);
+	// check if tracking state has changed
+	if (tf->trackingEnabled != newTrackingEnabled) {
+		tf->trackingEnabled = newTrackingEnabled;
+		obs_source_t *parent = obs_filter_get_parent(tf->source);
+		if (!parent) {
+			obs_log(LOG_ERROR, "Parent source not found");
+			return;
 		}
-		tf->trackingFilter = crop_pad_filter;
-	} else {
-		obs_log(LOG_INFO, "Tracking disabled");
-		// remove the crop/pad filter
-		obs_source_t *crop_pad_filter = obs_source_get_filter_by_name(
-			parent, "Detect Tracking");
-		if (crop_pad_filter) {
-			obs_source_filter_remove(parent, crop_pad_filter);
+		if (tf->trackingEnabled) {
+			obs_log(LOG_DEBUG, "Tracking enabled");
+			// get the parent of the source
+			// check if it has a crop/pad filter
+			obs_source_t *crop_pad_filter =
+				obs_source_get_filter_by_name(parent, "Detect Tracking");
+			if (!crop_pad_filter) {
+				// create a crop-pad filter
+				crop_pad_filter = obs_source_create(
+					"crop_filter", "Detect Tracking", nullptr, nullptr);
+				// add a crop/pad filter to the source
+				// set the parent of the crop/pad filter to the parent of the source
+				obs_source_filter_add(parent, crop_pad_filter);
+			}
+			tf->trackingFilter = crop_pad_filter;
+		} else {
+			obs_log(LOG_DEBUG, "Tracking disabled");
+			// remove the crop/pad filter
+			obs_source_t *crop_pad_filter =
+				obs_source_get_filter_by_name(parent, "Detect Tracking");
+			if (crop_pad_filter) {
+				obs_source_filter_remove(parent, crop_pad_filter);
+			}
+			tf->trackingFilter = nullptr;
 		}
-		tf->trackingFilter = nullptr;
 	}
 
 	const std::string newUseGpu = obs_data_get_string(settings, "useGPU");
-	const uint32_t newNumThreads =
-		(uint32_t)obs_data_get_int(settings, "numThreads");
-	const std::string newModelSize =
-		obs_data_get_string(settings, "model_size");
+	const uint32_t newNumThreads = (uint32_t)obs_data_get_int(settings, "numThreads");
+	const std::string newModelSize = obs_data_get_string(settings, "model_size");
 
+	bool reinitialize = false;
 	if (tf->useGPU != newUseGpu || tf->numThreads != newNumThreads ||
 	    tf->modelSize != newModelSize) {
+		obs_log(LOG_DEBUG, "Reinitializing model");
+		reinitialize = true;
+
 		// lock modelMutex
 		std::unique_lock<std::mutex> lock(tf->modelMutex);
 
 		char *modelFilepath_rawPtr = nullptr;
 		if (newModelSize == "small") {
-			modelFilepath_rawPtr = obs_module_file(
-				"models/edgeyolo_tiny_lrelu_coco_256x416.onnx");
+			modelFilepath_rawPtr =
+				obs_module_file("models/edgeyolo_tiny_lrelu_coco_256x416.onnx");
 		} else if (newModelSize == "medium") {
-			modelFilepath_rawPtr = obs_module_file(
-				"models/edgeyolo_tiny_lrelu_coco_480x800.onnx");
+			modelFilepath_rawPtr =
+				obs_module_file("models/edgeyolo_tiny_lrelu_coco_480x800.onnx");
 		} else {
-			modelFilepath_rawPtr = obs_module_file(
-				"models/edgeyolo_tiny_lrelu_coco_736x1280.onnx");
+			modelFilepath_rawPtr =
+				obs_module_file("models/edgeyolo_tiny_lrelu_coco_736x1280.onnx");
 		}
 
 		if (modelFilepath_rawPtr == nullptr) {
-			obs_log(LOG_ERROR,
-				"Unable to get model filename from plugin.");
+			obs_log(LOG_ERROR, "Unable to get model filename from plugin.");
+			tf->isDisabled = true;
 			return;
 		}
 
 		std::string modelFilepath_s(modelFilepath_rawPtr);
 
 #if _WIN32
-		int outLength = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED,
-						    modelFilepath_rawPtr, -1,
-						    nullptr, 0);
+		int outLength = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, modelFilepath_rawPtr,
+						    -1, nullptr, 0);
 		tf->modelFilepath = std::wstring(outLength, L'\0');
-		MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED,
-				    modelFilepath_rawPtr, -1,
+		MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, modelFilepath_rawPtr, -1,
 				    tf->modelFilepath.data(), outLength);
 #else
 		tf->modelFilepath = std::string(modelFilepath_rawPtr);
@@ -419,16 +378,14 @@ void detect_filter_update(void *data, obs_data_t *settings)
 			if (tf->edgeyolo) {
 				tf->edgeyolo.reset();
 			}
-			tf->edgeyolo = std::make_unique<
-				edgeyolo_cpp::EdgeYOLOONNXRuntime>(
-				tf->modelFilepath, tf->numThreads,
-				tf->numThreads, tf->useGPU,
-				onnxruntime_device_id_,
-				onnxruntime_use_parallel_, nms_th_,
+			tf->edgeyolo = std::make_unique<edgeyolo_cpp::EdgeYOLOONNXRuntime>(
+				tf->modelFilepath, tf->numThreads, tf->numThreads, tf->useGPU,
+				onnxruntime_device_id_, onnxruntime_use_parallel_, nms_th_,
 				tf->conf_threshold, num_classes_);
+			// clear error message
+			obs_data_set_string(settings, "error", "");
 		} catch (const std::exception &e) {
-			obs_log(LOG_ERROR, "Failed to load model: %s",
-				e.what());
+			obs_log(LOG_ERROR, "Failed to load model: %s", e.what());
 			// disable filter
 			tf->isDisabled = true;
 			tf->edgeyolo.reset();
@@ -437,41 +394,43 @@ void detect_filter_update(void *data, obs_data_t *settings)
 	}
 
 	// update threshold on edgeyolo
-	tf->edgeyolo->setBBoxConfThresh(tf->conf_threshold);
+	if (tf->edgeyolo) {
+		tf->edgeyolo->setBBoxConfThresh(tf->conf_threshold);
+	}
 
-	// Log the currently selected options
-	obs_log(LOG_INFO, "Detect Filter Options:");
-	// name of the source that the filter is attached to
-	obs_log(LOG_INFO, "  Source: %s", obs_source_get_name(tf->source));
-	obs_log(LOG_INFO, "  Inference Device: %s", tf->useGPU.c_str());
-	obs_log(LOG_INFO, "  Num Threads: %d", tf->numThreads);
-	obs_log(LOG_INFO, "  Model Size: %s", tf->modelSize.c_str());
-	obs_log(LOG_INFO, "  Preview: %s", tf->preview ? "true" : "false");
-	obs_log(LOG_INFO, "  Threshold: %.2f", tf->conf_threshold);
-	obs_log(LOG_INFO, "  Object Category: %s",
-		obs_data_get_string(settings, "object_category"));
-	obs_log(LOG_INFO, "  Masking Enabled: %s",
-		obs_data_get_bool(settings, "masking_group") ? "true"
-							     : "false");
-	obs_log(LOG_INFO, "  Masking Type: %s",
-		obs_data_get_string(settings, "masking_type"));
-	obs_log(LOG_INFO, "  Masking Color: %s",
-		obs_data_get_string(settings, "masking_color"));
-	obs_log(LOG_INFO, "  Masking Blur Radius: %d",
-		obs_data_get_int(settings, "masking_blur_radius"));
-	obs_log(LOG_INFO, "  Tracking Enabled: %s",
-		obs_data_get_bool(settings, "tracking_group") ? "true"
-							      : "false");
-	obs_log(LOG_INFO, "  Zoom Factor: %.2f",
-		obs_data_get_double(settings, "zoom_factor"));
-	obs_log(LOG_INFO, "  Zoom Object: %s",
-		obs_data_get_string(settings, "zoom_object"));
-	obs_log(LOG_INFO, "  Disabled: %s", tf->isDisabled ? "true" : "false");
+	if (reinitialize) {
+		// Log the currently selected options
+		obs_log(LOG_INFO, "Detect Filter Options:");
+		// name of the source that the filter is attached to
+		obs_log(LOG_INFO, "  Source: %s", obs_source_get_name(tf->source));
+		obs_log(LOG_INFO, "  Inference Device: %s", tf->useGPU.c_str());
+		obs_log(LOG_INFO, "  Num Threads: %d", tf->numThreads);
+		obs_log(LOG_INFO, "  Model Size: %s", tf->modelSize.c_str());
+		obs_log(LOG_INFO, "  Preview: %s", tf->preview ? "true" : "false");
+		obs_log(LOG_INFO, "  Threshold: %.2f", tf->conf_threshold);
+		obs_log(LOG_INFO, "  Object Category: %s",
+			obs_data_get_string(settings, "object_category"));
+		obs_log(LOG_INFO, "  Masking Enabled: %s",
+			obs_data_get_bool(settings, "masking_group") ? "true" : "false");
+		obs_log(LOG_INFO, "  Masking Type: %s",
+			obs_data_get_string(settings, "masking_type"));
+		obs_log(LOG_INFO, "  Masking Color: %s",
+			obs_data_get_string(settings, "masking_color"));
+		obs_log(LOG_INFO, "  Masking Blur Radius: %d",
+			obs_data_get_int(settings, "masking_blur_radius"));
+		obs_log(LOG_INFO, "  Tracking Enabled: %s",
+			obs_data_get_bool(settings, "tracking_group") ? "true" : "false");
+		obs_log(LOG_INFO, "  Zoom Factor: %.2f",
+			obs_data_get_double(settings, "zoom_factor"));
+		obs_log(LOG_INFO, "  Zoom Object: %s",
+			obs_data_get_string(settings, "zoom_object"));
+		obs_log(LOG_INFO, "  Disabled: %s", tf->isDisabled ? "true" : "false");
 #ifdef _WIN32
-	obs_log(LOG_INFO, "  Model file path: %S", tf->modelFilepath.c_str());
+		obs_log(LOG_INFO, "  Model file path: %S", tf->modelFilepath.c_str());
 #else
-	obs_log(LOG_INFO, "  Model file path: %s", tf->modelFilepath.c_str());
+		obs_log(LOG_INFO, "  Model file path: %s", tf->modelFilepath.c_str());
 #endif
+	}
 
 	// enable
 	tf->isDisabled = false;
@@ -521,17 +480,14 @@ void *detect_filter_create(obs_data_t *settings, obs_source_t *source)
 	gs_effect_destroy(tf->kawaseBlurEffect);
 	tf->kawaseBlurEffect = nullptr;
 	char *error = nullptr;
-	tf->kawaseBlurEffect =
-		gs_effect_create_from_file(kawaseBlurEffectPath, &error);
+	tf->kawaseBlurEffect = gs_effect_create_from_file(kawaseBlurEffectPath, &error);
 	bfree(kawaseBlurEffectPath);
 	if (!tf->kawaseBlurEffect || error) {
-		obs_log(LOG_ERROR, "Failed to load Kawase Blur effect: %s",
-			error);
+		obs_log(LOG_ERROR, "Failed to load Kawase Blur effect: %s", error);
 	}
 	gs_effect_destroy(tf->maskingEffect);
 	tf->maskingEffect = nullptr;
-	tf->maskingEffect =
-		gs_effect_create_from_file(maskingEffectPath, &error);
+	tf->maskingEffect = gs_effect_create_from_file(maskingEffectPath, &error);
 	bfree(maskingEffectPath);
 	if (!tf->maskingEffect || error) {
 		obs_log(LOG_ERROR, "Failed to load masking effect: %s", error);
@@ -571,7 +527,7 @@ void detect_filter_video_tick(void *data, float seconds)
 
 	struct detect_filter *tf = reinterpret_cast<detect_filter *>(data);
 
-	if (tf->isDisabled) {
+	if (tf->isDisabled || !tf->edgeyolo) {
 		return;
 	}
 
@@ -579,15 +535,9 @@ void detect_filter_video_tick(void *data, float seconds)
 		return;
 	}
 
-	if (!tf->edgeyolo) {
-		obs_log(LOG_ERROR, "Model is not initialized");
-		return;
-	}
-
 	cv::Mat imageBGRA;
 	{
-		std::unique_lock<std::mutex> lock(tf->inputBGRALock,
-						  std::try_to_lock);
+		std::unique_lock<std::mutex> lock(tf->inputBGRALock, std::try_to_lock);
 		if (!lock.owns_lock()) {
 			// No data to process
 			return;
@@ -617,12 +567,9 @@ void detect_filter_video_tick(void *data, float seconds)
 		if (tf->lastDetectedObjectId != objects[0].label) {
 			tf->lastDetectedObjectId = objects[0].label;
 			// get source settings
-			obs_data_t *source_settings =
-				obs_source_get_settings(tf->source);
-			obs_data_set_string(
-				source_settings, "detected_object",
-				edgeyolo_cpp::COCO_CLASSES[objects[0].label]
-					.c_str());
+			obs_data_t *source_settings = obs_source_get_settings(tf->source);
+			obs_data_set_string(source_settings, "detected_object",
+					    edgeyolo_cpp::COCO_CLASSES[objects[0].label].c_str());
 			// release the source settings
 			obs_data_release(source_settings);
 		}
@@ -630,10 +577,8 @@ void detect_filter_video_tick(void *data, float seconds)
 		if (tf->lastDetectedObjectId != -1) {
 			tf->lastDetectedObjectId = -1;
 			// get source settings
-			obs_data_t *source_settings =
-				obs_source_get_settings(tf->source);
-			obs_data_set_string(source_settings, "detected_object",
-					    "");
+			obs_data_t *source_settings = obs_source_get_settings(tf->source);
+			obs_data_set_string(source_settings, "detected_object", "");
 			// release the source settings
 			obs_data_release(source_settings);
 		}
@@ -656,8 +601,7 @@ void detect_filter_video_tick(void *data, float seconds)
 		if (tf->maskingEnabled) {
 			cv::Mat mask = cv::Mat::zeros(frame.size(), CV_8UC1);
 			for (const edgeyolo_cpp::Object &obj : objects) {
-				cv::rectangle(mask, obj.rect, cv::Scalar(255),
-					      -1);
+				cv::rectangle(mask, obj.rect, cv::Scalar(255), -1);
 			}
 			std::lock_guard<std::mutex> lock(tf->outputLock);
 			mask.copyTo(tf->outputMask);
@@ -668,8 +612,7 @@ void detect_filter_video_tick(void *data, float seconds)
 	}
 
 	if (tf->trackingEnabled && tf->trackingFilter) {
-		cv::Rect2f boundingBox =
-			cv::Rect2f(0, 0, (float)frame.cols, (float)frame.rows);
+		cv::Rect2f boundingBox = cv::Rect2f(0, 0, (float)frame.cols, (float)frame.rows);
 		// get location of the objects
 		if (tf->zoomObject == "single") {
 			if (objects.size() > 0) {
@@ -679,8 +622,7 @@ void detect_filter_video_tick(void *data, float seconds)
 			// get the bounding box of all objects
 			if (objects.size() > 0) {
 				boundingBox = objects[0].rect;
-				for (const edgeyolo_cpp::Object &obj :
-				     objects) {
+				for (const edgeyolo_cpp::Object &obj : objects) {
 					boundingBox |= obj.rect;
 				}
 			}
@@ -706,37 +648,29 @@ void detect_filter_video_tick(void *data, float seconds)
 			tf->trackingRect = cv::Rect2f(zx, zy, zw, zh);
 		} else {
 			// interpolate the zooming box to tf->trackingRect
-			float factor = tf->zoomSpeedFactor *
-				       (lostTracking ? 0.2f : 1.0f);
-			tf->trackingRect.x = tf->trackingRect.x +
-					     factor * (zx - tf->trackingRect.x);
-			tf->trackingRect.y = tf->trackingRect.y +
-					     factor * (zy - tf->trackingRect.y);
+			float factor = tf->zoomSpeedFactor * (lostTracking ? 0.2f : 1.0f);
+			tf->trackingRect.x =
+				tf->trackingRect.x + factor * (zx - tf->trackingRect.x);
+			tf->trackingRect.y =
+				tf->trackingRect.y + factor * (zy - tf->trackingRect.y);
 			tf->trackingRect.width =
-				tf->trackingRect.width +
-				factor * (zw - tf->trackingRect.width);
+				tf->trackingRect.width + factor * (zw - tf->trackingRect.width);
 			tf->trackingRect.height =
-				tf->trackingRect.height +
-				factor * (zh - tf->trackingRect.height);
+				tf->trackingRect.height + factor * (zh - tf->trackingRect.height);
 		}
 
 		// get the settings of the crop/pad filter
-		obs_data_t *crop_pad_settings =
-			obs_source_get_settings(tf->trackingFilter);
-		obs_data_set_int(crop_pad_settings, "left",
-				 (int)tf->trackingRect.x);
-		obs_data_set_int(crop_pad_settings, "top",
-				 (int)tf->trackingRect.y);
+		obs_data_t *crop_pad_settings = obs_source_get_settings(tf->trackingFilter);
+		obs_data_set_int(crop_pad_settings, "left", (int)tf->trackingRect.x);
+		obs_data_set_int(crop_pad_settings, "top", (int)tf->trackingRect.y);
 		// right = image width - (zx + zw)
 		obs_data_set_int(
 			crop_pad_settings, "right",
-			(int)((float)frame.cols -
-			      (tf->trackingRect.x + tf->trackingRect.width)));
+			(int)((float)frame.cols - (tf->trackingRect.x + tf->trackingRect.width)));
 		// bottom = image height - (zy + zh)
 		obs_data_set_int(
 			crop_pad_settings, "bottom",
-			(int)((float)frame.rows -
-			      (tf->trackingRect.y + tf->trackingRect.height)));
+			(int)((float)frame.rows - (tf->trackingRect.y + tf->trackingRect.height)));
 		// apply the settings
 		obs_source_update(tf->trackingFilter, crop_pad_settings);
 		obs_data_release(crop_pad_settings);
@@ -749,7 +683,7 @@ void detect_filter_video_render(void *data, gs_effect_t *_effect)
 
 	struct detect_filter *tf = reinterpret_cast<detect_filter *>(data);
 
-	if (tf->isDisabled) {
+	if (tf->isDisabled || !tf->edgeyolo) {
 		if (tf->source) {
 			obs_source_skip_video_filter(tf->source);
 		}
@@ -773,16 +707,14 @@ void detect_filter_video_render(void *data, gs_effect_t *_effect)
 			if (tf->outputPreviewBGRA.empty()) {
 				obs_log(LOG_ERROR, "Preview image is empty");
 				if (tf->source) {
-					obs_source_skip_video_filter(
-						tf->source);
+					obs_source_skip_video_filter(tf->source);
 				}
 				return;
 			}
 			if ((uint32_t)tf->outputPreviewBGRA.cols != width ||
 			    (uint32_t)tf->outputPreviewBGRA.rows != height) {
 				if (tf->source) {
-					obs_source_skip_video_filter(
-						tf->source);
+					obs_source_skip_video_filter(tf->source);
 				}
 				return;
 			}
@@ -790,43 +722,37 @@ void detect_filter_video_render(void *data, gs_effect_t *_effect)
 			outputMask = tf->outputMask.clone();
 		}
 
-		gs_texture_t *tex = gs_texture_create(
-			width, height, GS_BGRA, 1,
-			(const uint8_t **)&outputBGRA.data, 0);
+		gs_texture_t *tex = gs_texture_create(width, height, GS_BGRA, 1,
+						      (const uint8_t **)&outputBGRA.data, 0);
 		gs_texture_t *maskTexture = nullptr;
 		std::string technique_name = "Draw";
-		gs_eparam_t *imageParam =
-			gs_effect_get_param_by_name(tf->maskingEffect, "image");
-		gs_eparam_t *maskParam = gs_effect_get_param_by_name(
-			tf->maskingEffect, "focalmask");
+		gs_eparam_t *imageParam = gs_effect_get_param_by_name(tf->maskingEffect, "image");
+		gs_eparam_t *maskParam =
+			gs_effect_get_param_by_name(tf->maskingEffect, "focalmask");
 		gs_eparam_t *maskColorParam =
 			gs_effect_get_param_by_name(tf->maskingEffect, "color");
 
 		if (tf->maskingEnabled) {
-			maskTexture = gs_texture_create(
-				width, height, GS_R8, 1,
-				(const uint8_t **)&outputMask.data, 0);
+			maskTexture = gs_texture_create(width, height, GS_R8, 1,
+							(const uint8_t **)&outputMask.data, 0);
 			gs_effect_set_texture(maskParam, maskTexture);
 			if (tf->maskingType == "output_mask") {
 				technique_name = "DrawMask";
 			} else if (tf->maskingType == "blur") {
 				gs_texture_destroy(tex);
-				tex = blur_image(tf, width, height,
-						 maskTexture);
+				tex = blur_image(tf, width, height, maskTexture);
 			} else if (tf->maskingType == "transparent") {
 				technique_name = "DrawSolidColor";
 				gs_effect_set_color(maskColorParam, 0);
 			} else if (tf->maskingType == "solid_color") {
 				technique_name = "DrawSolidColor";
-				gs_effect_set_color(maskColorParam,
-						    tf->maskingColor);
+				gs_effect_set_color(maskColorParam, tf->maskingColor);
 			}
 		}
 
 		gs_effect_set_texture(imageParam, tex);
 
-		while (gs_effect_loop(tf->maskingEffect,
-				      technique_name.c_str())) {
+		while (gs_effect_loop(tf->maskingEffect, technique_name.c_str())) {
 			gs_draw_sprite(tex, 0, 0, 0);
 		}
 

@@ -27,9 +27,8 @@ static std::vector<std::string> read_class_labels_file(file_name_t file_name)
 	return class_names;
 }
 
-static void
-draw_objects(cv::Mat bgr, const std::vector<Object> &objects,
-	     const std::vector<std::string> &class_names = COCO_CLASSES)
+static void draw_objects(cv::Mat bgr, const std::vector<Object> &objects,
+			 const std::vector<std::string> &class_names = COCO_CLASSES)
 {
 
 	for (size_t i = 0; i < objects.size(); i++) {
@@ -50,12 +49,12 @@ draw_objects(cv::Mat bgr, const std::vector<Object> &objects,
 		cv::rectangle(bgr, obj.rect, color * 255, 2);
 
 		char text[256];
-		snprintf(text, sizeof(text), "%s %.1f%%",
-			 class_names[obj.label].c_str(), obj.prob * 100);
+		snprintf(text, sizeof(text), "%s %.1f%%", class_names[obj.label].c_str(),
+			 obj.prob * 100);
 
 		int baseLine = 0;
-		cv::Size label_size = cv::getTextSize(
-			text, cv::FONT_HERSHEY_SIMPLEX, 0.4, 1, &baseLine);
+		cv::Size label_size =
+			cv::getTextSize(text, cv::FONT_HERSHEY_SIMPLEX, 0.4, 1, &baseLine);
 
 		cv::Scalar txt_bk_color = color * 0.7 * 255;
 
@@ -66,8 +65,7 @@ draw_objects(cv::Mat bgr, const std::vector<Object> &objects,
 
 		cv::rectangle(bgr,
 			      cv::Rect(cv::Point(x, y),
-				       cv::Size(label_size.width,
-						label_size.height + baseLine)),
+				       cv::Size(label_size.width, label_size.height + baseLine)),
 			      txt_bk_color, -1);
 
 		cv::putText(bgr, text, cv::Point(x, y + label_size.height),

@@ -33,8 +33,7 @@ struct GridAndStride {
 class AbcEdgeYOLO {
 public:
 	AbcEdgeYOLO() {}
-	AbcEdgeYOLO(float nms_th = 0.45f, float conf_th = 0.3f,
-		    int num_classes = 80)
+	AbcEdgeYOLO(float nms_th = 0.45f, float conf_th = 0.3f, int num_classes = 80)
 		: nms_thresh_(nms_th),
 		  bbox_conf_thresh_(conf_th),
 		  num_classes_(num_classes)
@@ -42,10 +41,7 @@ public:
 	}
 	virtual std::vector<Object> inference(const cv::Mat &frame) = 0;
 
-	void setBBoxConfThresh(float thresh)
-	{
-		this->bbox_conf_thresh_ = thresh;
-	}
+	void setBBoxConfThresh(float thresh) { this->bbox_conf_thresh_ = thresh; }
 
 protected:
 	int input_w_;
@@ -66,8 +62,7 @@ protected:
 		int unpad_h = (int)(r * (float)img.rows);
 		cv::Mat re(unpad_h, unpad_w, CV_8UC3);
 		cv::resize(img, re, re.size());
-		cv::Mat out(input_h_, input_w_, CV_8UC3,
-			    cv::Scalar(114, 114, 114));
+		cv::Mat out(input_h_, input_w_, CV_8UC3, cv::Scalar(114, 114, 114));
 		re.copyTo(out(cv::Rect(0, 0, re.cols, re.rows)));
 		return out;
 	}
@@ -81,10 +76,8 @@ protected:
 		for (size_t c = 0; c < channels; ++c) {
 			for (size_t h = 0; h < img_h; ++h) {
 				for (size_t w = 0; w < img_w; ++w) {
-					blob_data[(int)(c * img_w * img_h +
-							h * img_w + w)] =
-						(float)img.ptr<cv::Vec3b>(
-							(int)h)[(int)w][(int)c];
+					blob_data[(int)(c * img_w * img_h + h * img_w + w)] =
+						(float)img.ptr<cv::Vec3b>((int)h)[(int)w][(int)c];
 				}
 			}
 		}
@@ -98,16 +91,13 @@ protected:
 		size_t img_w = img.cols;
 		for (size_t i = 0; i < img_h * img_w; ++i) {
 			for (size_t c = 0; c < channels; ++c) {
-				blob_data[i * channels + c] =
-					(float)img.data[i * channels + c];
+				blob_data[i * channels + c] = (float)img.data[i * channels + c];
 			}
 		}
 	}
 
-	void generate_edgeyolo_proposals(const int num_array,
-					 const float *feat_ptr,
-					 const float prob_threshold,
-					 std::vector<Object> &objects)
+	void generate_edgeyolo_proposals(const int num_array, const float *feat_ptr,
+					 const float prob_threshold, std::vector<Object> &objects)
 	{
 
 		for (int idx = 0; idx < num_array; ++idx) {
@@ -116,10 +106,8 @@ protected:
 			float box_objectness = feat_ptr[basic_pos + 4];
 			int class_id = 0;
 			float max_class_score = 0.0;
-			for (int class_idx = 0; class_idx < num_classes_;
-			     ++class_idx) {
-				float box_cls_score =
-					feat_ptr[basic_pos + 5 + class_idx];
+			for (int class_idx = 0; class_idx < num_classes_; ++class_idx) {
+				float box_cls_score = feat_ptr[basic_pos + 5 + class_idx];
 				float box_prob = box_objectness * box_cls_score;
 				if (box_prob > max_class_score) {
 					class_id = class_idx;
@@ -152,8 +140,7 @@ protected:
 		return inter.area();
 	}
 
-	void qsort_descent_inplace(std::vector<Object> &faceobjects, int left,
-				   int right)
+	void qsort_descent_inplace(std::vector<Object> &faceobjects, int left, int right)
 	{
 		int i = left;
 		int j = right;
@@ -187,8 +174,7 @@ protected:
 		qsort_descent_inplace(objects, 0, (int)(objects.size() - 1));
 	}
 
-	void nms_sorted_bboxes(const std::vector<Object> &faceobjects,
-			       std::vector<int> &picked,
+	void nms_sorted_bboxes(const std::vector<Object> &faceobjects, std::vector<int> &picked,
 			       const float nms_threshold)
 	{
 		picked.clear();
@@ -210,8 +196,7 @@ protected:
 
 				// intersection over union
 				float inter_area = intersection_area(a, b);
-				float union_area = areas[i] + areas[picked[j]] -
-						   inter_area;
+				float union_area = areas[i] + areas[picked[j]] - inter_area;
 				// float IoU = inter_area / union_area
 				if (inter_area / union_area > nms_threshold)
 					keep = 0;
@@ -222,15 +207,13 @@ protected:
 		}
 	}
 
-	void decode_outputs(const float *prob, const int num_array,
-			    std::vector<Object> &objects,
-			    const float bbox_conf_thresh, const float scale,
-			    const int img_w, const int img_h)
+	void decode_outputs(const float *prob, const int num_array, std::vector<Object> &objects,
+			    const float bbox_conf_thresh, const float scale, const int img_w,
+			    const int img_h)
 	{
 
 		std::vector<Object> proposals;
-		generate_edgeyolo_proposals(num_array, prob, bbox_conf_thresh,
-					    proposals);
+		generate_edgeyolo_proposals(num_array, prob, bbox_conf_thresh, proposals);
 
 		qsort_descent_inplace(proposals);
 
@@ -244,12 +227,11 @@ protected:
 			// adjust offset to original unpadded
 			float x0 = (proposals[picked[i]].rect.x) / scale;
 			float y0 = (proposals[picked[i]].rect.y) / scale;
-			float x1 = (proposals[picked[i]].rect.x +
-				    proposals[picked[i]].rect.width) /
+			float x1 = (proposals[picked[i]].rect.x + proposals[picked[i]].rect.width) /
 				   scale;
-			float y1 = (proposals[picked[i]].rect.y +
-				    proposals[picked[i]].rect.height) /
-				   scale;
+			float y1 =
+				(proposals[picked[i]].rect.y + proposals[picked[i]].rect.height) /
+				scale;
 
 			// clip
 			x0 = std::max(std::min(x0, (float)(img_w - 1)), 0.f);
