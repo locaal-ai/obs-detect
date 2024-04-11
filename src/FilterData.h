@@ -23,9 +23,11 @@ struct filter_data {
 	int maskingBlurRadius;
 	bool trackingEnabled;
 	float zoomFactor;
+	float zoomSpeedFactor;
 	std::string zoomObject;
 	obs_source_t *trackingFilter;
 	cv::Rect2f trackingRect;
+	int lastDetectedObjectId;
 
 	obs_source_t *source;
 	gs_texrender_t *texrender;

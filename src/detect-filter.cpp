@@ -48,9 +48,8 @@ static bool enable_advanced_settings(obs_properties_t *ppts, obs_property_t *p,
 {
 	const bool enabled = obs_data_get_bool(settings, "advanced");
 
-	for (const char *prop_name :
-	     {"threshold", "useGPU", "preview", "numThreads", "object_category",
-	      "masking_group", "tracking_group", "model_size"}) {
+	for (const char *prop_name : {"threshold", "useGPU", "numThreads",
+				      "model_size", "detected_object"}) {
 		p = obs_properties_get(ppts, prop_name);
 		obs_property_set_visible(p, enabled);
 	}
@@ -61,50 +60,6 @@ static bool enable_advanced_settings(obs_properties_t *ppts, obs_property_t *p,
 obs_properties_t *detect_filter_properties(void *data)
 {
 	obs_properties_t *props = obs_properties_create();
-
-	obs_property_t *advanced = obs_properties_add_bool(
-		props, "advanced", obs_module_text("Advanced"));
-
-	// If advanced is selected show the advanced settings, otherwise hide them
-	obs_property_set_modified_callback(advanced, enable_advanced_settings);
-
-	obs_properties_add_float_slider(props, "threshold",
-					obs_module_text("ConfThreshold"), 0.0,
-					1.0, 0.025);
-
-	/* GPU, CPU and performance Props */
-	obs_property_t *p_use_gpu = obs_properties_add_list(
-		props, "useGPU", obs_module_text("InferenceDevice"),
-		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
-
-	obs_property_list_add_string(p_use_gpu, obs_module_text("CPU"),
-				     USEGPU_CPU);
-#if defined(__linux__) && defined(__x86_64__)
-	obs_property_list_add_string(p_use_gpu, obs_module_text("GPUTensorRT"),
-				     USEGPU_TENSORRT);
-#endif
-#if _WIN32
-	obs_property_list_add_string(p_use_gpu, obs_module_text("GPUDirectML"),
-				     USEGPU_DML);
-#endif
-#if defined(__APPLE__)
-	obs_property_list_add_string(p_use_gpu, obs_module_text("CoreML"),
-				     USEGPU_COREML);
-#endif
-
-	obs_properties_add_int_slider(props, "numThreads",
-				      obs_module_text("NumThreads"), 0, 8, 1);
-
-	// add drop down option for model size: Small, Medium, Large
-	obs_property_t *model_size = obs_properties_add_list(
-		props, "model_size", obs_module_text("ModelSize"),
-		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
-	obs_property_list_add_string(model_size, obs_module_text("SmallFast"),
-				     "small");
-	obs_property_list_add_string(model_size, obs_module_text("Medium"),
-				     "medium");
-	obs_property_list_add_string(model_size, obs_module_text("LargeSlow"),
-				     "large");
 
 	obs_properties_add_bool(props, "preview", obs_module_text("Preview"));
 
@@ -238,7 +193,8 @@ obs_properties_t *detect_filter_properties(void *data)
 				   obs_data_t *settings) {
 			const bool enabled =
 				obs_data_get_bool(settings, "tracking_group");
-			for (auto prop_name : {"zoom_factor", "zoom_object"}) {
+			for (auto prop_name : {"zoom_factor", "zoom_object",
+					       "zoom_speed_factor"}) {
 				obs_property_t *prop =
 					obs_properties_get(props_, prop_name);
 				obs_property_set_visible(prop, enabled);
@@ -251,6 +207,11 @@ obs_properties_t *detect_filter_properties(void *data)
 					obs_module_text("ZoomFactor"), 0.0, 1.0,
 					0.05);
 
+	obs_properties_add_float_slider(tracking_group_props,
+					"zoom_speed_factor",
+					obs_module_text("ZoomSpeed"), 0.0, 0.1,
+					0.01);
+
 	// add object selection for zoom drop down: "Single", "All"
 	obs_property_t *zoom_object = obs_properties_add_list(
 		tracking_group_props, "zoom_object",
@@ -260,6 +221,59 @@ obs_properties_t *detect_filter_properties(void *data)
 				     obs_module_text("SingleFirst"), "single");
 	obs_property_list_add_string(zoom_object, obs_module_text("All"),
 				     "all");
+
+	obs_property_t *advanced = obs_properties_add_bool(
+		props, "advanced", obs_module_text("Advanced"));
+
+	// If advanced is selected show the advanced settings, otherwise hide them
+	obs_property_set_modified_callback(advanced, enable_advanced_settings);
+
+	// add a text input for the currently detected object
+	obs_properties_add_text(props, "detected_object",
+				obs_module_text("DetectedObject"),
+				OBS_TEXT_DEFAULT);
+	// disable the text input by default
+	obs_property_set_enabled(obs_properties_get(props, "detected_object"),
+				 false);
+
+	// add threshold slider
+	obs_properties_add_float_slider(props, "threshold",
+					obs_module_text("ConfThreshold"), 0.0,
+					1.0, 0.025);
+
+	/* GPU, CPU and performance Props */
+	obs_property_t *p_use_gpu = obs_properties_add_list(
+		props, "useGPU", obs_module_text("InferenceDevice"),
+		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+
+	obs_property_list_add_string(p_use_gpu, obs_module_text("CPU"),
+				     USEGPU_CPU);
+#if defined(__linux__) && defined(__x86_64__)
+	obs_property_list_add_string(p_use_gpu, obs_module_text("GPUTensorRT"),
+				     USEGPU_TENSORRT);
+#endif
+#if _WIN32
+	obs_property_list_add_string(p_use_gpu, obs_module_text("GPUDirectML"),
+				     USEGPU_DML);
+#endif
+#if defined(__APPLE__)
+	obs_property_list_add_string(p_use_gpu, obs_module_text("CoreML"),
+				     USEGPU_COREML);
+#endif
+
+	obs_properties_add_int_slider(props, "numThreads",
+				      obs_module_text("NumThreads"), 0, 8, 1);
+
+	// add drop down option for model size: Small, Medium, Large
+	obs_property_t *model_size = obs_properties_add_list(
+		props, "model_size", obs_module_text("ModelSize"),
+		OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_STRING);
+	obs_property_list_add_string(model_size, obs_module_text("SmallFast"),
+				     "small");
+	obs_property_list_add_string(model_size, obs_module_text("Medium"),
+				     "medium");
+	obs_property_list_add_string(model_size, obs_module_text("LargeSlow"),
+				     "large");
 
 	// Add a informative text about the plugin
 	std::string basic_info = std::regex_replace(
@@ -283,16 +297,17 @@ void detect_filter_defaults(obs_data_t *settings)
 	obs_data_set_default_string(settings, "useGPU", USEGPU_CPU);
 #endif
 	obs_data_set_default_int(settings, "numThreads", 1);
-	obs_data_set_default_bool(settings, "preview", false);
+	obs_data_set_default_bool(settings, "preview", true);
 	obs_data_set_default_double(settings, "threshold", 0.5);
 	obs_data_set_default_string(settings, "model_size", "small");
-	obs_data_set_default_string(settings, "object_category", "all");
+	obs_data_set_default_int(settings, "object_category", -1);
 	obs_data_set_default_bool(settings, "masking_group", false);
 	obs_data_set_default_string(settings, "masking_type", "none");
 	obs_data_set_default_string(settings, "masking_color", "#000000");
 	obs_data_set_default_int(settings, "masking_blur_radius", 0);
 	obs_data_set_default_bool(settings, "tracking_group", false);
 	obs_data_set_default_double(settings, "zoom_factor", 0.0);
+	obs_data_set_default_double(settings, "zoom_speed_factor", 0.05);
 	obs_data_set_default_string(settings, "zoom_object", "single");
 }
 
@@ -313,6 +328,8 @@ void detect_filter_update(void *data, obs_data_t *settings)
 		(int)obs_data_get_int(settings, "masking_blur_radius");
 	tf->trackingEnabled = obs_data_get_bool(settings, "tracking_group");
 	tf->zoomFactor = (float)obs_data_get_double(settings, "zoom_factor");
+	tf->zoomSpeedFactor =
+		(float)obs_data_get_double(settings, "zoom_speed_factor");
 	tf->zoomObject = obs_data_get_string(settings, "zoom_object");
 
 	obs_source_t *parent = obs_filter_get_parent(tf->source);
@@ -484,6 +501,7 @@ void *detect_filter_create(obs_data_t *settings, obs_source_t *source)
 
 	tf->source = source;
 	tf->texrender = gs_texrender_create(GS_BGRA, GS_ZS_NONE);
+	tf->lastDetectedObjectId = -1;
 
 	char *kawaseBlurEffectPath = obs_module_file(KAWASE_BLUR_EFFECT_PATH);
 	if (!kawaseBlurEffectPath) {
@@ -594,6 +612,33 @@ void detect_filter_video_tick(void *data, float seconds)
 		obs_log(LOG_ERROR, "%s", e.what());
 	}
 
+	// update the detected object text input
+	if (objects.size() > 0) {
+		if (tf->lastDetectedObjectId != objects[0].label) {
+			tf->lastDetectedObjectId = objects[0].label;
+			// get source settings
+			obs_data_t *source_settings =
+				obs_source_get_settings(tf->source);
+			obs_data_set_string(
+				source_settings, "detected_object",
+				edgeyolo_cpp::COCO_CLASSES[objects[0].label]
+					.c_str());
+			// release the source settings
+			obs_data_release(source_settings);
+		}
+	} else {
+		if (tf->lastDetectedObjectId != -1) {
+			tf->lastDetectedObjectId = -1;
+			// get source settings
+			obs_data_t *source_settings =
+				obs_source_get_settings(tf->source);
+			obs_data_set_string(source_settings, "detected_object",
+					    "");
+			// release the source settings
+			obs_data_release(source_settings);
+		}
+	}
+
 	if (tf->objectCategory != -1) {
 		std::vector<edgeyolo_cpp::Object> filtered_objects;
 		for (const edgeyolo_cpp::Object &obj : objects) {
@@ -661,7 +706,8 @@ void detect_filter_video_tick(void *data, float seconds)
 			tf->trackingRect = cv::Rect2f(zx, zy, zw, zh);
 		} else {
 			// interpolate the zooming box to tf->trackingRect
-			float factor = lostTracking ? 0.01f : 0.05f;
+			float factor = tf->zoomSpeedFactor *
+				       (lostTracking ? 0.2f : 1.0f);
 			tf->trackingRect.x = tf->trackingRect.x +
 					     factor * (zx - tf->trackingRect.x);
 			tf->trackingRect.y = tf->trackingRect.y +
