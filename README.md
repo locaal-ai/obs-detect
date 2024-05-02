@@ -51,6 +51,10 @@ Roadmap features:
 - Make available detection information for other plugins through settings
 - More real-time models choices
 
+## Train a custom model
+
+Follow the instructions in [docs/train_model.md](docs/train_model.md) to train your own custom model.
+
 ## Building
 
 The plugin was built and tested on Mac OSX  (Intel & Apple silicon), Windows and Linux.
