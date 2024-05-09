@@ -296,7 +296,6 @@ obs_properties_t *detect_filter_properties(void *data)
 			UNUSED_PARAMETER(p);
 			struct detect_filter *tf_ = reinterpret_cast<detect_filter *>(data_);
 			const char *model_size_value = obs_data_get_string(settings, "model_size");
-			obs_log(LOG_INFO, "model_size modified: %s", model_size_value);
 			bool is_external = strcmp(model_size_value, EXTERNAL_MODEL_SIZE) == 0;
 			obs_property_t *prop = obs_properties_get(props_, "external_model_file");
 			obs_property_set_visible(prop, is_external);
@@ -322,11 +321,9 @@ obs_properties_t *detect_filter_properties(void *data)
 		obs_properties_get(props, "external_model_file"),
 		[](void *data_, obs_properties_t *props_, obs_property_t *p, obs_data_t *settings) {
 			UNUSED_PARAMETER(p);
-			obs_log(LOG_INFO, "external_model_file modified");
 			const char *model_size_value = obs_data_get_string(settings, "model_size");
 			bool is_external = strcmp(model_size_value, EXTERNAL_MODEL_SIZE) == 0;
 			if (!is_external) {
-				obs_log(LOG_INFO, "Not an external model");
 				return true;
 			}
 			struct detect_filter *tf_ = reinterpret_cast<detect_filter *>(data_);
@@ -452,7 +449,6 @@ void detect_filter_update(void *data, obs_data_t *settings)
 			modelFilepath_rawPtr =
 				obs_module_file("models/edgeyolo_tiny_lrelu_coco_736x1280.onnx");
 		} else if (newModelSize == EXTERNAL_MODEL_SIZE) {
-			obs_log(LOG_INFO, "External model selected");
 			const char *external_model_file =
 				obs_data_get_string(settings, "external_model_file");
 			if (external_model_file == nullptr || external_model_file[0] == '\0' ||
