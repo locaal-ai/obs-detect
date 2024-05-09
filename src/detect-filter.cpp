@@ -293,6 +293,7 @@ obs_properties_t *detect_filter_properties(void *data)
 	obs_property_set_modified_callback2(
 		model_size,
 		[](void *data_, obs_properties_t *props_, obs_property_t *p, obs_data_t *settings) {
+			UNUSED_PARAMETER(p);
 			struct detect_filter *tf_ = reinterpret_cast<detect_filter *>(data_);
 			const char *model_size_value = obs_data_get_string(settings, "model_size");
 			obs_log(LOG_INFO, "model_size modified: %s", model_size_value);
@@ -320,6 +321,7 @@ obs_properties_t *detect_filter_properties(void *data)
 	obs_property_set_modified_callback2(
 		obs_properties_get(props, "external_model_file"),
 		[](void *data_, obs_properties_t *props_, obs_property_t *p, obs_data_t *settings) {
+			UNUSED_PARAMETER(p);
 			obs_log(LOG_INFO, "external_model_file modified");
 			const char *model_size_value = obs_data_get_string(settings, "model_size");
 			bool is_external = strcmp(model_size_value, EXTERNAL_MODEL_SIZE) == 0;
