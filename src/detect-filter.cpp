@@ -230,6 +230,21 @@ obs_properties_t *detect_filter_properties(void *data)
 	obs_property_list_add_string(model_size, obs_module_text("SmallFast"), "small");
 	obs_property_list_add_string(model_size, obs_module_text("Medium"), "medium");
 	obs_property_list_add_string(model_size, obs_module_text("LargeSlow"), "large");
+	obs_property_list_add_string(model_size, obs_module_text("ExternalModel"),
+				     "!!!external!!!");
+
+	// add external model file path
+	obs_properties_add_path(props, "model_file", obs_module_text("ModelPath"), OBS_PATH_FILE,
+				"EdgeYOLO onnx files (*.onnx);;all files (*.*)", nullptr);
+
+	// add callback to show/hide the external model file path
+	obs_property_set_modified_callback(model_size, [](obs_properties_t *props_,
+							  obs_property_t *p, obs_data_t *settings) {
+		const char *model_size_value = obs_data_get_string(settings, "model_size");
+		obs_property_t *prop = obs_properties_get(props_, "model_file");
+		obs_property_set_visible(prop, strcmp(model_size_value, "!!!external!!!") == 0);
+		return true;
+	});
 
 	// Add a informative text about the plugin
 	std::string basic_info =
@@ -339,9 +354,15 @@ void detect_filter_update(void *data, obs_data_t *settings)
 		} else if (newModelSize == "medium") {
 			modelFilepath_rawPtr =
 				obs_module_file("models/edgeyolo_tiny_lrelu_coco_480x800.onnx");
-		} else {
+		} else if (newModelSize == "large") {
 			modelFilepath_rawPtr =
 				obs_module_file("models/edgeyolo_tiny_lrelu_coco_736x1280.onnx");
+		} else if (newModelSize == "!!!external!!!") {
+			modelFilepath_rawPtr = bstrdup(obs_data_get_string(settings, "model_file"));
+		} else {
+			obs_log(LOG_ERROR, "Invalid model size: %s", newModelSize.c_str());
+			tf->isDisabled = true;
+			return;
 		}
 
 		if (modelFilepath_rawPtr == nullptr) {
@@ -361,6 +382,7 @@ void detect_filter_update(void *data, obs_data_t *settings)
 #else
 		tf->modelFilepath = std::string(modelFilepath_rawPtr);
 #endif
+		bfree(modelFilepath_rawPtr);
 
 		// Re-initialize model if it's not already the selected one or switching inference device
 		tf->useGPU = newUseGpu;
@@ -390,6 +412,33 @@ void detect_filter_update(void *data, obs_data_t *settings)
 			tf->isDisabled = true;
 			tf->edgeyolo.reset();
 			return;
+		}
+
+		// If this is an external model - look for the labels file
+		if (tf->modelSize == "!!!external!!!") {
+#ifdef _WIN32
+			std::wstring labelsFilepath = tf->modelFilepath;
+			labelsFilepath.replace(labelsFilepath.find(L".onnx"), 5, L".txt");
+#else
+			std::string labelsFilepath = tf->modelFilepath;
+			labelsFilepath.replace(labelsFilepath.find(".onnx"), 5, ".txt");
+#endif
+			std::ifstream labelsFile(labelsFilepath);
+			if (labelsFile.is_open()) {
+				std::string line;
+				std::vector<std::string> labels;
+				while (std::getline(labelsFile, line)) {
+					labels.push_back(line);
+				}
+				labelsFile.close();
+			} else {
+				obs_log(LOG_ERROR, "Failed to load labels file: %s",
+					labelsFilepath.c_str());
+				// disable filter
+				tf->isDisabled = true;
+				tf->edgeyolo.reset();
+				return;
+			}
 		}
 	}
 
@@ -426,7 +475,7 @@ void detect_filter_update(void *data, obs_data_t *settings)
 			obs_data_get_string(settings, "zoom_object"));
 		obs_log(LOG_INFO, "  Disabled: %s", tf->isDisabled ? "true" : "false");
 #ifdef _WIN32
-		obs_log(LOG_INFO, "  Model file path: %S", tf->modelFilepath.c_str());
+		obs_log(LOG_INFO, "  Model file path: %ls", tf->modelFilepath.c_str());
 #else
 		obs_log(LOG_INFO, "  Model file path: %s", tf->modelFilepath.c_str());
 #endif

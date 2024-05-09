@@ -39,6 +39,7 @@ Current features:
 
 - Detect over 80 categories of objects, using an efficient model ([EdgeYOLO](https://github.com/LSH9832/edgeyolo))
 - 3 Model sizes: Small, Medium and Large
+- Load custom ONNX detection models from disk
 - Control detection threshold
 - Select object category filter (e.g. find only "Person")
 - Masking: Blur, Solid color, Transparent, output binary mask (combine with other plugins!)
