@@ -77,6 +77,9 @@ else()
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OpenCV)
 endif()
 
+# add the vendor folder to the include path
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE vendor)
+
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-main.c src/detect-filter.cpp src/detect-filter-info.c
                                              src/obs-utils/obs-utils.cpp src/edgeyolo/edgeyolo_onnxruntime.cpp)
 
