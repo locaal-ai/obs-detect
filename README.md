@@ -52,9 +52,9 @@ Roadmap features:
 - Make available detection information for other plugins through settings
 - More real-time models choices
 
-## Train a custom model
+## Train and use a custom detection model
 
-Follow the instructions in [docs/train_model.md](docs/train_model.md) to train your own custom model.
+Follow the instructions in [docs/train_model.md](docs/train_model.md) to train and use your own custom model.
 
 ## Building
 

@@ -1,7 +1,9 @@
-# How to train your custom model for OBS Detect plugin
+# How to train and use a custom model with OBS Detect plugin
 
 OBS Detect is based on the [EdgeYOLO](https://github.com/LSH9832/edgeyolo) work.
 They provide a model training script that works with just setting some parameters.
+
+If you already have a trained EdgeYOLO model in `.onnx` format, skip to the [last step](#step-6-use-the-model-with-obs-detect).
 
 You need to get a dataset first. The supported dataset formats are mentiond in the [EdgeYOLO](https://github.com/LSH9832/edgeyolo?tab=readme-ov-file#train) readme: COCO, VOC, YOLO, and DOTA.
 
@@ -181,6 +183,6 @@ You will find the ONNX model in the `output/export/` folder, e.g. `output/export
 
 You can now use the ONNX model with the OBS Detect plugin. Just load the model from the plugin settings.
 
-![alt text](image.png)
+![select external model](image.png)
 
-You will also need a configuration file for the model but that is created automatically by the export script above. It will have the same name as the ONNX model but with a `.json` extension.
+You will also need a configuration file for the model with the class names, which is created automatically by the export / conversion script above. It will have the same name as the ONNX model but with a `.json` extension.
