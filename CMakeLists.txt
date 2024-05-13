@@ -77,6 +77,11 @@ else()
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE OpenCV)
 endif()
 
+include(cmake/FetchEigen.cmake)
+
+add_subdirectory(src/sort-cpp)
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE sort-cpp)
+
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-main.c src/detect-filter.cpp src/detect-filter-info.c
                                              src/obs-utils/obs-utils.cpp src/edgeyolo/edgeyolo_onnxruntime.cpp)
 

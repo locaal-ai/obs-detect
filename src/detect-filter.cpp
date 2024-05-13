@@ -196,14 +196,17 @@ obs_properties_t *detect_filter_properties(void *data)
 	obs_property_set_modified_callback(advanced, enable_advanced_settings);
 
 	// add a text input for the currently detected object
-	obs_properties_add_text(props, "detected_object", obs_module_text("DetectedObject"),
-				OBS_TEXT_DEFAULT);
+	obs_property_t *detected_obj_prop = obs_properties_add_text(
+		props, "detected_object", obs_module_text("DetectedObject"), OBS_TEXT_DEFAULT);
 	// disable the text input by default
-	obs_property_set_enabled(obs_properties_get(props, "detected_object"), false);
+	obs_property_set_enabled(detected_obj_prop, false);
 
 	// add threshold slider
 	obs_properties_add_float_slider(props, "threshold", obs_module_text("ConfThreshold"), 0.0,
 					1.0, 0.025);
+
+	// add SORT tracking enabled checkbox
+	obs_properties_add_bool(props, "sort_tracking", obs_module_text("SORTTracking"));
 
 	/* GPU, CPU and performance Props */
 	obs_property_t *p_use_gpu =
@@ -251,6 +254,7 @@ void detect_filter_defaults(obs_data_t *settings)
 	// Linux
 	obs_data_set_default_string(settings, "useGPU", USEGPU_CPU);
 #endif
+	obs_data_set_default_bool(settings, "sort_tracking", false);
 	obs_data_set_default_int(settings, "numThreads", 1);
 	obs_data_set_default_bool(settings, "preview", true);
 	obs_data_set_default_double(settings, "threshold", 0.5);
@@ -283,6 +287,7 @@ void detect_filter_update(void *data, obs_data_t *settings)
 	tf->zoomFactor = (float)obs_data_get_double(settings, "zoom_factor");
 	tf->zoomSpeedFactor = (float)obs_data_get_double(settings, "zoom_speed_factor");
 	tf->zoomObject = obs_data_get_string(settings, "zoom_object");
+	tf->sortTracking = obs_data_get_bool(settings, "sort_tracking");
 
 	// check if tracking state has changed
 	if (tf->trackingEnabled != newTrackingEnabled) {
@@ -560,6 +565,24 @@ void detect_filter_video_tick(void *data, float seconds)
 		obs_log(LOG_ERROR, "ONNXRuntime Exception: %s", e.what());
 	} catch (const std::exception &e) {
 		obs_log(LOG_ERROR, "%s", e.what());
+	}
+
+	if (tf->sortTracking) {
+		// sort tracking
+		std::vector<cv::Rect> detections;
+		for (const edgeyolo_cpp::Object &obj : objects) {
+			detections.push_back({(int)obj.rect.x, (int)obj.rect.y, (int)obj.rect.width,
+					      (int)obj.rect.height});
+		}
+		tf->tracker.Run(detections);
+		const auto tracks = tf->tracker.GetTracks();
+		for (auto &trk : tracks) {
+			const auto &bbox = trk.second.GetStateAsBbox();
+			cv::rectangle(frame, bbox, cv::Scalar(0, 255, 0), 2);
+			cv::putText(frame, std::to_string(trk.first),
+				    cv::Point(bbox.x, bbox.y - 10), cv::FONT_HERSHEY_SIMPLEX, 0.5,
+				    cv::Scalar(0, 255, 0), 2);
+		}
 	}
 
 	// update the detected object text input
