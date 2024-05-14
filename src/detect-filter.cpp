@@ -750,7 +750,7 @@ void detect_filter_video_tick(void *data, float seconds)
 
 	if (tf->preview || tf->maskingEnabled) {
 		if (tf->preview && objects.size() > 0) {
-			edgeyolo_cpp::utils::draw_objects(frame, objects);
+			edgeyolo_cpp::utils::draw_objects(frame, objects, tf->classNames);
 		}
 		if (tf->maskingEnabled) {
 			cv::Mat mask = cv::Mat::zeros(frame.size(), CV_8UC1);
