@@ -399,7 +399,7 @@ void detect_filter_update(void *data, obs_data_t *settings)
 	tf->zoomSpeedFactor = (float)obs_data_get_double(settings, "zoom_speed_factor");
 	tf->zoomObject = obs_data_get_string(settings, "zoom_object");
 	tf->sortTracking = obs_data_get_bool(settings, "sort_tracking");
-	int maxUnseenFrames = (int)obs_data_get_int(settings, "max_unseen_frames");
+	size_t maxUnseenFrames = (size_t)obs_data_get_int(settings, "max_unseen_frames");
 	if (tf->tracker.getMaxUnseenFrames() != maxUnseenFrames) {
 		tf->tracker.setMaxUnseenFrames(maxUnseenFrames);
 	}

@@ -19,7 +19,7 @@
 #if !defined(_MUNKRES_ADAPTERS_STD_2D_VECTOR_H_)
 #define _MUNKRES_ADAPTERS_STD_2D_VECTOR_H_
 
-#include "munkres-cpp/munkres.h"
+#include "sort/munkres-cpp/munkres.h"
 #include <vector>
 
 namespace munkres_cpp {

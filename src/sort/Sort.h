@@ -22,7 +22,10 @@ public:
 	std::vector<edgeyolo_cpp::Object> getTrackedObjects() const;
 
 	// Set Max Unseen Frames
-	void setMaxUnseenFrames(size_t maxUnseenFrames) { this->maxUnseenFrames = maxUnseenFrames; }
+	void setMaxUnseenFrames(size_t maxUnseenFrames_)
+	{
+		this->maxUnseenFrames = maxUnseenFrames_;
+	}
 
 	// Get Max Unseen Frames
 	size_t getMaxUnseenFrames() const { return this->maxUnseenFrames; }
