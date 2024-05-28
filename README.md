@@ -17,7 +17,7 @@ If you like this work, which is given to you completely free of charge, please c
 - https://github.com/sponsors/royshil
 - https://github.com/sponsors/umireon
 
-This work uses the great contributions from [EdgeYOLO-ROS](https://github.com/fateshelled/EdgeYOLO-ROS) and [PINTO-Model-Zoo](https://github.com/PINTO0309/PINTO_model_zoo). The SORT algorithm is taken from https://github.com/yasenh/sort-cpp under the GPL license.
+This work uses the great contributions from [EdgeYOLO-ROS](https://github.com/fateshelled/EdgeYOLO-ROS) and [PINTO-Model-Zoo](https://github.com/PINTO0309/PINTO_model_zoo). The Hungarian algorithm is taken from https://github.com/Gluttton/munkres-cpp under the GPLv2 license.
 
 ## Usage
 
