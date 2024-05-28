@@ -18,11 +18,15 @@
 #include <regex>
 #include <thread>
 
+#include <nlohmann/json.hpp>
+
 #include <plugin-support.h>
 #include "FilterData.h"
 #include "consts.h"
 #include "obs-utils/obs-utils.h"
 #include "edgeyolo/utils.hpp"
+
+#define EXTERNAL_MODEL_SIZE "!!!EXTERNAL_MODEL!!!"
 
 struct detect_filter : public filter_data {};
 
@@ -57,20 +61,12 @@ static bool enable_advanced_settings(obs_properties_t *ppts, obs_property_t *p,
 	return true;
 }
 
-obs_properties_t *detect_filter_properties(void *data)
+void set_class_names_on_object_category(obs_property_t *object_category,
+					std::vector<std::string> class_names)
 {
-	obs_properties_t *props = obs_properties_create();
-
-	obs_properties_add_bool(props, "preview", obs_module_text("Preview"));
-
-	// add dropdown selection for object category selection: "All", or COCO classes
-	obs_property_t *object_category =
-		obs_properties_add_list(props, "object_category", obs_module_text("ObjectCategory"),
-					OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
-	obs_property_list_add_int(object_category, obs_module_text("All"), -1);
 	std::vector<std::pair<size_t, std::string>> indexed_classes;
-	for (size_t i = 0; i < edgeyolo_cpp::COCO_CLASSES.size(); ++i) {
-		const std::string &class_name = edgeyolo_cpp::COCO_CLASSES[i];
+	for (size_t i = 0; i < class_names.size(); ++i) {
+		const std::string &class_name = class_names[i];
 		// capitalize the first letter of the class name
 		std::string class_name_cap = class_name;
 		class_name_cap[0] = (char)std::toupper((int)class_name_cap[0]);
@@ -82,11 +78,66 @@ obs_properties_t *detect_filter_properties(void *data)
 		  [](const std::pair<size_t, std::string> &a,
 		     const std::pair<size_t, std::string> &b) { return a.second < b.second; });
 
+	// clear the object category list
+	obs_property_list_clear(object_category);
+
+	// add the sorted classes to the property list
+	obs_property_list_add_int(object_category, obs_module_text("All"), -1);
+
 	// add the sorted classes to the property list
 	for (const auto &indexed_class : indexed_classes) {
 		obs_property_list_add_int(object_category, indexed_class.second.c_str(),
 					  (int)indexed_class.first);
 	}
+}
+
+void read_model_config_json_and_set_class_names(const char *model_file, obs_properties_t *props_,
+						obs_data_t *settings, struct detect_filter *tf_)
+{
+	if (model_file == nullptr || model_file[0] == '\0' || strlen(model_file) == 0) {
+		obs_log(LOG_ERROR, "Model file path is empty");
+		return;
+	}
+
+	// read the '.json' file near the model file to find the class names
+	std::string json_file = model_file;
+	json_file.replace(json_file.find(".onnx"), 5, ".json");
+	std::ifstream file(json_file);
+	if (!file.is_open()) {
+		obs_data_set_string(settings, "error", "JSON file not found");
+		obs_log(LOG_ERROR, "JSON file not found: %s", json_file.c_str());
+	} else {
+		obs_data_set_string(settings, "error", "");
+		// parse the JSON file
+		nlohmann::json j;
+		file >> j;
+		if (j.contains("names")) {
+			std::vector<std::string> labels = j["names"];
+			set_class_names_on_object_category(
+				obs_properties_get(props_, "object_category"), labels);
+			tf_->classNames = labels;
+		} else {
+			obs_data_set_string(settings, "error",
+					    "JSON file does not contain 'names' field");
+			obs_log(LOG_ERROR, "JSON file does not contain 'names' field");
+		}
+	}
+}
+
+obs_properties_t *detect_filter_properties(void *data)
+{
+	struct detect_filter *tf = reinterpret_cast<detect_filter *>(data);
+
+	obs_properties_t *props = obs_properties_create();
+
+	obs_properties_add_bool(props, "preview", obs_module_text("Preview"));
+
+	// add dropdown selection for object category selection: "All", or COCO classes
+	obs_property_t *object_category =
+		obs_properties_add_list(props, "object_category", obs_module_text("ObjectCategory"),
+					OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
+	set_class_names_on_object_category(object_category, edgeyolo_cpp::COCO_CLASSES);
+	tf->classNames = edgeyolo_cpp::COCO_CLASSES;
 
 	// options group for masking
 	obs_properties_t *masking_group = obs_properties_create();
@@ -237,6 +288,59 @@ obs_properties_t *detect_filter_properties(void *data)
 	obs_property_list_add_string(model_size, obs_module_text("SmallFast"), "small");
 	obs_property_list_add_string(model_size, obs_module_text("Medium"), "medium");
 	obs_property_list_add_string(model_size, obs_module_text("LargeSlow"), "large");
+	obs_property_list_add_string(model_size, obs_module_text("ExternalModel"),
+				     EXTERNAL_MODEL_SIZE);
+
+	// add external model file path
+	obs_properties_add_path(props, "external_model_file", obs_module_text("ModelPath"),
+				OBS_PATH_FILE, "EdgeYOLO onnx files (*.onnx);;all files (*.*)",
+				nullptr);
+
+	// add callback to show/hide the external model file path
+	obs_property_set_modified_callback2(
+		model_size,
+		[](void *data_, obs_properties_t *props_, obs_property_t *p, obs_data_t *settings) {
+			UNUSED_PARAMETER(p);
+			struct detect_filter *tf_ = reinterpret_cast<detect_filter *>(data_);
+			const char *model_size_value = obs_data_get_string(settings, "model_size");
+			bool is_external = strcmp(model_size_value, EXTERNAL_MODEL_SIZE) == 0;
+			obs_property_t *prop = obs_properties_get(props_, "external_model_file");
+			obs_property_set_visible(prop, is_external);
+			if (!is_external) {
+				// reset the class names to COCO classes for default models
+				set_class_names_on_object_category(
+					obs_properties_get(props_, "object_category"),
+					edgeyolo_cpp::COCO_CLASSES);
+				tf_->classNames = edgeyolo_cpp::COCO_CLASSES;
+			} else {
+				// if the model path is already set - update the class names
+				const char *model_file =
+					obs_data_get_string(settings, "external_model_file");
+				read_model_config_json_and_set_class_names(model_file, props_,
+									   settings, tf_);
+			}
+			return true;
+		},
+		tf);
+
+	// add callback on the model file path to check if the file exists
+	obs_property_set_modified_callback2(
+		obs_properties_get(props, "external_model_file"),
+		[](void *data_, obs_properties_t *props_, obs_property_t *p, obs_data_t *settings) {
+			UNUSED_PARAMETER(p);
+			const char *model_size_value = obs_data_get_string(settings, "model_size");
+			bool is_external = strcmp(model_size_value, EXTERNAL_MODEL_SIZE) == 0;
+			if (!is_external) {
+				return true;
+			}
+			struct detect_filter *tf_ = reinterpret_cast<detect_filter *>(data_);
+			const char *model_file =
+				obs_data_get_string(settings, "external_model_file");
+			read_model_config_json_and_set_class_names(model_file, props_, settings,
+								   tf_);
+			return true;
+		},
+		tf);
 
 	// Add a informative text about the plugin
 	std::string basic_info =
@@ -277,6 +381,8 @@ void detect_filter_defaults(obs_data_t *settings)
 
 void detect_filter_update(void *data, obs_data_t *settings)
 {
+	obs_log(LOG_INFO, "Detect filter update");
+
 	struct detect_filter *tf = reinterpret_cast<detect_filter *>(data);
 
 	tf->isDisabled = true;
@@ -340,7 +446,7 @@ void detect_filter_update(void *data, obs_data_t *settings)
 	bool reinitialize = false;
 	if (tf->useGPU != newUseGpu || tf->numThreads != newNumThreads ||
 	    tf->modelSize != newModelSize) {
-		obs_log(LOG_DEBUG, "Reinitializing model");
+		obs_log(LOG_INFO, "Reinitializing model");
 		reinitialize = true;
 
 		// lock modelMutex
@@ -353,9 +459,23 @@ void detect_filter_update(void *data, obs_data_t *settings)
 		} else if (newModelSize == "medium") {
 			modelFilepath_rawPtr =
 				obs_module_file("models/edgeyolo_tiny_lrelu_coco_480x800.onnx");
-		} else {
+		} else if (newModelSize == "large") {
 			modelFilepath_rawPtr =
 				obs_module_file("models/edgeyolo_tiny_lrelu_coco_736x1280.onnx");
+		} else if (newModelSize == EXTERNAL_MODEL_SIZE) {
+			const char *external_model_file =
+				obs_data_get_string(settings, "external_model_file");
+			if (external_model_file == nullptr || external_model_file[0] == '\0' ||
+			    strlen(external_model_file) == 0) {
+				obs_log(LOG_ERROR, "External model file path is empty");
+				tf->isDisabled = true;
+				return;
+			}
+			modelFilepath_rawPtr = bstrdup(external_model_file);
+		} else {
+			obs_log(LOG_ERROR, "Invalid model size: %s", newModelSize.c_str());
+			tf->isDisabled = true;
+			return;
 		}
 
 		if (modelFilepath_rawPtr == nullptr) {
@@ -363,8 +483,6 @@ void detect_filter_update(void *data, obs_data_t *settings)
 			tf->isDisabled = true;
 			return;
 		}
-
-		std::string modelFilepath_s(modelFilepath_rawPtr);
 
 #if _WIN32
 		int outLength = MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, modelFilepath_rawPtr,
@@ -375,6 +493,7 @@ void detect_filter_update(void *data, obs_data_t *settings)
 #else
 		tf->modelFilepath = std::string(modelFilepath_rawPtr);
 #endif
+		bfree(modelFilepath_rawPtr);
 
 		// Re-initialize model if it's not already the selected one or switching inference device
 		tf->useGPU = newUseGpu;
@@ -386,6 +505,41 @@ void detect_filter_update(void *data, obs_data_t *settings)
 		bool onnxruntime_use_parallel_ = true;
 		float nms_th_ = 0.45f;
 		int num_classes_ = (int)edgeyolo_cpp::COCO_CLASSES.size();
+		tf->classNames = edgeyolo_cpp::COCO_CLASSES;
+
+		// If this is an external model - look for the config JSON file
+		if (tf->modelSize == EXTERNAL_MODEL_SIZE) {
+#ifdef _WIN32
+			std::wstring labelsFilepath = tf->modelFilepath;
+			labelsFilepath.replace(labelsFilepath.find(L".onnx"), 5, L".json");
+#else
+			std::string labelsFilepath = tf->modelFilepath;
+			labelsFilepath.replace(labelsFilepath.find(".onnx"), 5, ".json");
+#endif
+			std::ifstream labelsFile(labelsFilepath);
+			if (labelsFile.is_open()) {
+				// Parse the JSON file
+				nlohmann::json j;
+				labelsFile >> j;
+				if (j.contains("names")) {
+					std::vector<std::string> labels = j["names"];
+					num_classes_ = (int)labels.size();
+					tf->classNames = labels;
+				} else {
+					obs_log(LOG_ERROR,
+						"JSON file does not contain 'labels' field");
+					tf->isDisabled = true;
+					tf->edgeyolo.reset();
+					return;
+				}
+			} else {
+				obs_log(LOG_ERROR, "Failed to open JSON file: %s",
+					labelsFilepath.c_str());
+				tf->isDisabled = true;
+				tf->edgeyolo.reset();
+				return;
+			}
+		}
 
 		// Load model
 		try {
@@ -440,7 +594,7 @@ void detect_filter_update(void *data, obs_data_t *settings)
 			obs_data_get_string(settings, "zoom_object"));
 		obs_log(LOG_INFO, "  Disabled: %s", tf->isDisabled ? "true" : "false");
 #ifdef _WIN32
-		obs_log(LOG_INFO, "  Model file path: %S", tf->modelFilepath.c_str());
+		obs_log(LOG_INFO, "  Model file path: %ls", tf->modelFilepath.c_str());
 #else
 		obs_log(LOG_INFO, "  Model file path: %s", tf->modelFilepath.c_str());
 #endif
@@ -598,7 +752,7 @@ void detect_filter_video_tick(void *data, float seconds)
 			// get source settings
 			obs_data_t *source_settings = obs_source_get_settings(tf->source);
 			obs_data_set_string(source_settings, "detected_object",
-					    edgeyolo_cpp::COCO_CLASSES[objects[0].label].c_str());
+					    tf->classNames[objects[0].label].c_str());
 			// release the source settings
 			obs_data_release(source_settings);
 		}
@@ -625,7 +779,7 @@ void detect_filter_video_tick(void *data, float seconds)
 
 	if (tf->preview || tf->maskingEnabled) {
 		if (tf->preview && objects.size() > 0) {
-			edgeyolo_cpp::utils::draw_objects(frame, objects);
+			edgeyolo_cpp::utils::draw_objects(frame, objects, tf->classNames);
 		}
 		if (tf->maskingEnabled) {
 			cv::Mat mask = cv::Mat::zeros(frame.size(), CV_8UC1);

@@ -52,6 +52,7 @@ struct filter_data {
 	std::mutex modelMutex;
 
 	std::unique_ptr<edgeyolo_cpp::EdgeYOLOONNXRuntime> edgeyolo;
+	std::vector<std::string> classNames;
 
 #if _WIN32
 	std::wstring modelFilepath;
