@@ -3,7 +3,7 @@
 
 #include <obs-module.h>
 #include "edgeyolo/edgeyolo_onnxruntime.hpp"
-#include "tracker.h"
+#include "sort/Sort.h"
 
 /**
   * @brief The filter_data struct
@@ -32,7 +32,7 @@ struct filter_data {
 	bool sortTracking;
 
 	// create SORT tracker
-	Tracker tracker;
+	Sort tracker;
 
 	obs_source_t *source;
 	gs_texrender_t *texrender;

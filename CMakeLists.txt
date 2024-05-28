@@ -79,10 +79,8 @@ endif()
 
 include(cmake/FetchEigen.cmake)
 
-add_subdirectory(src/sort-cpp)
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE sort-cpp)
-
-target_sources(${CMAKE_PROJECT_NAME} PRIVATE src/plugin-main.c src/detect-filter.cpp src/detect-filter-info.c
-                                             src/obs-utils/obs-utils.cpp src/edgeyolo/edgeyolo_onnxruntime.cpp)
+target_sources(
+  ${CMAKE_PROJECT_NAME} PRIVATE src/plugin-main.c src/detect-filter.cpp src/detect-filter-info.c
+                                src/obs-utils/obs-utils.cpp src/edgeyolo/edgeyolo_onnxruntime.cpp src/sort/Sort.cpp)
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})
