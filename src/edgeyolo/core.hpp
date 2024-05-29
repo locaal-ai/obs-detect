@@ -233,6 +233,7 @@ protected:
 			proposals[picked[i]].rect.y = y0;
 			proposals[picked[i]].rect.width = x1 - x0;
 			proposals[picked[i]].rect.height = y1 - y0;
+			proposals[picked[i]].id = objects.size() + 1;
 
 			objects.push_back(proposals[picked[i]]);
 		}

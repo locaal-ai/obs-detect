@@ -263,6 +263,9 @@ obs_properties_t *detect_filter_properties(void *data)
 	obs_properties_add_int(props, "max_unseen_frames", obs_module_text("MaxUnseenFrames"), 1,
 			       30, 1);
 
+	// add option to show unseen objects
+	obs_properties_add_bool(props, "show_unseen_objects", obs_module_text("ShowUnseenObjects"));
+
 	/* GPU, CPU and performance Props */
 	obs_property_t *p_use_gpu =
 		obs_properties_add_list(props, "useGPU", obs_module_text("InferenceDevice"),
@@ -364,6 +367,7 @@ void detect_filter_defaults(obs_data_t *settings)
 #endif
 	obs_data_set_default_bool(settings, "sort_tracking", false);
 	obs_data_set_default_int(settings, "max_unseen_frames", 10);
+	obs_data_set_default_bool(settings, "show_unseen_objects", false);
 	obs_data_set_default_int(settings, "numThreads", 1);
 	obs_data_set_default_bool(settings, "preview", true);
 	obs_data_set_default_double(settings, "threshold", 0.5);
@@ -403,6 +407,7 @@ void detect_filter_update(void *data, obs_data_t *settings)
 	if (tf->tracker.getMaxUnseenFrames() != maxUnseenFrames) {
 		tf->tracker.setMaxUnseenFrames(maxUnseenFrames);
 	}
+	tf->showUnseenObjects = obs_data_get_bool(settings, "show_unseen_objects");
 
 	// check if tracking state has changed
 	if (tf->trackingEnabled != newTrackingEnabled) {
@@ -730,21 +735,6 @@ void detect_filter_video_tick(void *data, float seconds)
 		obs_log(LOG_ERROR, "%s", e.what());
 	}
 
-	if (tf->sortTracking) {
-		// sort tracking
-		tf->tracker.update(objects);
-		const auto trackedObjects = tf->tracker.getTrackedObjects();
-		for (auto &trk : trackedObjects) {
-			if (trk.unseenFrames > 0) {
-				continue;
-			}
-			cv::rectangle(frame, trk.rect, cv::Scalar(0, 255, 0), 2);
-			cv::putText(frame, std::to_string(trk.id),
-				    cv::Point((int)trk.rect.x, (int)trk.rect.y - 10),
-				    cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2);
-		}
-	}
-
 	// update the detected object text input
 	if (objects.size() > 0) {
 		if (tf->lastDetectedObjectId != objects[0].label) {
@@ -775,6 +765,29 @@ void detect_filter_video_tick(void *data, float seconds)
 			}
 		}
 		objects = filtered_objects;
+	}
+
+	if (tf->sortTracking) {
+		objects = tf->tracker.update(objects);
+		// if (tf->preview) {
+		//     for (auto &trk : objects) {
+		//         if (!tf->showUnseenObjects && trk.unseenFrames > 0) {
+		//             continue;
+		//         }
+		//         cv::rectangle(frame, trk.rect, cv::Scalar(0, 255, 0), 2);
+		//         cv::putText(frame, std::to_string(trk.id),
+		//                 cv::Point((int)trk.rect.x, (int)trk.rect.y - 10),
+		//                 cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2);
+		//     }
+		// }
+	}
+
+	if (!tf->showUnseenObjects) {
+		objects.erase(std::remove_if(objects.begin(), objects.end(),
+					     [](const edgeyolo_cpp::Object &obj) {
+						     return obj.unseenFrames > 0;
+					     }),
+			      objects.end());
 	}
 
 	if (tf->preview || tf->maskingEnabled) {

@@ -98,15 +98,23 @@ float computeIoU(const cv::Rect_<float> &rect1, const cv::Rect_<float> &rect2)
 }
 
 // Update the tracking with detected objects
-void Sort::update(const std::vector<edgeyolo_cpp::Object> &detections)
+std::vector<edgeyolo_cpp::Object> Sort::update(const std::vector<edgeyolo_cpp::Object> &detections)
 {
 	if (detections.empty()) {
+		std::vector<edgeyolo_cpp::Object> newTrackedObjects;
+
 		// No detections, predict the next state of the existing tracks and update unseen frames
 		for (size_t i = 0; i < trackedObjects.size(); ++i) {
 			trackedObjects[i].rect = predict(trackedObjects[i].kf);
 			trackedObjects[i].unseenFrames++;
+
+			// Remove lost tracks
+			if (trackedObjects[i].unseenFrames < this->maxUnseenFrames) {
+				newTrackedObjects.push_back(trackedObjects[i]);
+			}
 		}
-		return;
+		trackedObjects = newTrackedObjects;
+		return trackedObjects;
 	}
 
 	if (trackedObjects.empty()) {
@@ -119,7 +127,7 @@ void Sort::update(const std::vector<edgeyolo_cpp::Object> &detections)
 			trackedObjects.back().id = nextTrackID++;
 			trackedObjects.back().unseenFrames = 0;
 		}
-		return;
+		return trackedObjects;
 	}
 
 	// Predict new locations of existing tracked objects
@@ -159,6 +167,9 @@ void Sort::update(const std::vector<edgeyolo_cpp::Object> &detections)
 				trackedObjects[i].rect = updateKalmanFilter(trackedObjects[i].kf,
 									    detections[j].rect);
 				trackedObjects[i].unseenFrames = 0;
+				trackedObjects[i].label = detections[j].label;
+				trackedObjects[i].prob = detections[j].prob;
+				// mark the detection and the tracked object as used
 				detectionUsed[j] = true;
 				trackedObjectUsed[i] = true;
 				break;
@@ -181,7 +192,6 @@ void Sort::update(const std::vector<edgeyolo_cpp::Object> &detections)
 	}
 
 	// Remove lost tracks
-	std::vector<cv::KalmanFilter> newKalmanFilters;
 	std::vector<edgeyolo_cpp::Object> newTrackedObjects;
 	std::vector<int> newTrackIDs;
 	for (size_t i = 0; i < trackedObjects.size(); ++i) {
@@ -194,6 +204,8 @@ void Sort::update(const std::vector<edgeyolo_cpp::Object> &detections)
 		}
 	}
 	trackedObjects = newTrackedObjects;
+
+	return trackedObjects;
 }
 
 // Get the current tracked objects and their tracking id

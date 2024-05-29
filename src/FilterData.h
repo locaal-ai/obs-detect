@@ -30,6 +30,7 @@ struct filter_data {
 	cv::Rect2f trackingRect;
 	int lastDetectedObjectId;
 	bool sortTracking;
+	bool showUnseenObjects;
 
 	// create SORT tracker
 	Sort tracker;

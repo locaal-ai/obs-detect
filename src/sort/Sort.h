@@ -16,7 +16,8 @@ public:
 	~Sort();
 
 	// Update the tracking with detected objects
-	void update(const std::vector<edgeyolo_cpp::Object> &detections);
+	std::vector<edgeyolo_cpp::Object>
+	update(const std::vector<edgeyolo_cpp::Object> &detections);
 
 	// Get the current tracked objects and their classes
 	std::vector<edgeyolo_cpp::Object> getTrackedObjects() const;
