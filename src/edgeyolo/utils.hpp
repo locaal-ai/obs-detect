@@ -72,7 +72,7 @@ static void draw_objects(cv::Mat bgr, const std::vector<Object> &objects,
 			    cv::FONT_HERSHEY_SIMPLEX, 0.4, txt_color, 1);
 
 		// write the id of the object
-		snprintf(text, sizeof(text), "ID: %llu", obj.id);
+		snprintf(text, sizeof(text), "ID: %lu", (uint32_t)obj.id);
 		cv::putText(bgr, text, cv::Point(x, y + label_size.height + 15),
 			    cv::FONT_HERSHEY_SIMPLEX, 0.4, txt_color, 1);
 	}
