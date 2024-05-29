@@ -247,14 +247,24 @@ obs_properties_t *detect_filter_properties(void *data)
 	obs_property_set_modified_callback(advanced, enable_advanced_settings);
 
 	// add a text input for the currently detected object
-	obs_properties_add_text(props, "detected_object", obs_module_text("DetectedObject"),
-				OBS_TEXT_DEFAULT);
+	obs_property_t *detected_obj_prop = obs_properties_add_text(
+		props, "detected_object", obs_module_text("DetectedObject"), OBS_TEXT_DEFAULT);
 	// disable the text input by default
-	obs_property_set_enabled(obs_properties_get(props, "detected_object"), false);
+	obs_property_set_enabled(detected_obj_prop, false);
 
 	// add threshold slider
 	obs_properties_add_float_slider(props, "threshold", obs_module_text("ConfThreshold"), 0.0,
 					1.0, 0.025);
+
+	// add SORT tracking enabled checkbox
+	obs_properties_add_bool(props, "sort_tracking", obs_module_text("SORTTracking"));
+
+	// add parameter for number of missing frames before a track is considered lost
+	obs_properties_add_int(props, "max_unseen_frames", obs_module_text("MaxUnseenFrames"), 1,
+			       30, 1);
+
+	// add option to show unseen objects
+	obs_properties_add_bool(props, "show_unseen_objects", obs_module_text("ShowUnseenObjects"));
 
 	/* GPU, CPU and performance Props */
 	obs_property_t *p_use_gpu =
@@ -355,6 +365,9 @@ void detect_filter_defaults(obs_data_t *settings)
 	// Linux
 	obs_data_set_default_string(settings, "useGPU", USEGPU_CPU);
 #endif
+	obs_data_set_default_bool(settings, "sort_tracking", false);
+	obs_data_set_default_int(settings, "max_unseen_frames", 10);
+	obs_data_set_default_bool(settings, "show_unseen_objects", true);
 	obs_data_set_default_int(settings, "numThreads", 1);
 	obs_data_set_default_bool(settings, "preview", true);
 	obs_data_set_default_double(settings, "threshold", 0.5);
@@ -389,6 +402,12 @@ void detect_filter_update(void *data, obs_data_t *settings)
 	tf->zoomFactor = (float)obs_data_get_double(settings, "zoom_factor");
 	tf->zoomSpeedFactor = (float)obs_data_get_double(settings, "zoom_speed_factor");
 	tf->zoomObject = obs_data_get_string(settings, "zoom_object");
+	tf->sortTracking = obs_data_get_bool(settings, "sort_tracking");
+	size_t maxUnseenFrames = (size_t)obs_data_get_int(settings, "max_unseen_frames");
+	if (tf->tracker.getMaxUnseenFrames() != maxUnseenFrames) {
+		tf->tracker.setMaxUnseenFrames(maxUnseenFrames);
+	}
+	tf->showUnseenObjects = obs_data_get_bool(settings, "show_unseen_objects");
 
 	// check if tracking state has changed
 	if (tf->trackingEnabled != newTrackingEnabled) {
@@ -746,6 +765,18 @@ void detect_filter_video_tick(void *data, float seconds)
 			}
 		}
 		objects = filtered_objects;
+	}
+
+	if (tf->sortTracking) {
+		objects = tf->tracker.update(objects);
+	}
+
+	if (!tf->showUnseenObjects) {
+		objects.erase(std::remove_if(objects.begin(), objects.end(),
+					     [](const edgeyolo_cpp::Object &obj) {
+						     return obj.unseenFrames > 0;
+					     }),
+			      objects.end());
 	}
 
 	if (tf->preview || tf->maskingEnabled) {

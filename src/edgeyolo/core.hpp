@@ -4,6 +4,8 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
+#include "types.hpp"
+
 namespace edgeyolo_cpp {
 /**
  * @brief Define names based depends on Unicode path support
@@ -17,18 +19,6 @@ namespace edgeyolo_cpp {
 #endif
 
 #define imread_t cv::imread
-
-struct Object {
-	cv::Rect_<float> rect;
-	int label;
-	float prob;
-};
-
-struct GridAndStride {
-	int grid0;
-	int grid1;
-	int stride;
-};
 
 class AbcEdgeYOLO {
 public:
@@ -243,6 +233,7 @@ protected:
 			proposals[picked[i]].rect.y = y0;
 			proposals[picked[i]].rect.width = x1 - x0;
 			proposals[picked[i]].rect.height = y1 - y0;
+			proposals[picked[i]].id = objects.size() + 1;
 
 			objects.push_back(proposals[picked[i]]);
 		}

@@ -3,6 +3,7 @@
 
 #include <obs-module.h>
 #include "edgeyolo/edgeyolo_onnxruntime.hpp"
+#include "sort/Sort.h"
 
 /**
   * @brief The filter_data struct
@@ -28,6 +29,11 @@ struct filter_data {
 	obs_source_t *trackingFilter;
 	cv::Rect2f trackingRect;
 	int lastDetectedObjectId;
+	bool sortTracking;
+	bool showUnseenObjects;
+
+	// create SORT tracker
+	Sort tracker;
 
 	obs_source_t *source;
 	gs_texrender_t *texrender;
