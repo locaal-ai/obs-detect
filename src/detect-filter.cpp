@@ -367,7 +367,7 @@ void detect_filter_defaults(obs_data_t *settings)
 #endif
 	obs_data_set_default_bool(settings, "sort_tracking", false);
 	obs_data_set_default_int(settings, "max_unseen_frames", 10);
-	obs_data_set_default_bool(settings, "show_unseen_objects", false);
+	obs_data_set_default_bool(settings, "show_unseen_objects", true);
 	obs_data_set_default_int(settings, "numThreads", 1);
 	obs_data_set_default_bool(settings, "preview", true);
 	obs_data_set_default_double(settings, "threshold", 0.5);
@@ -769,17 +769,6 @@ void detect_filter_video_tick(void *data, float seconds)
 
 	if (tf->sortTracking) {
 		objects = tf->tracker.update(objects);
-		// if (tf->preview) {
-		//     for (auto &trk : objects) {
-		//         if (!tf->showUnseenObjects && trk.unseenFrames > 0) {
-		//             continue;
-		//         }
-		//         cv::rectangle(frame, trk.rect, cv::Scalar(0, 255, 0), 2);
-		//         cv::putText(frame, std::to_string(trk.id),
-		//                 cv::Point((int)trk.rect.x, (int)trk.rect.y - 10),
-		//                 cv::FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0, 255, 0), 2);
-		//     }
-		// }
 	}
 
 	if (!tf->showUnseenObjects) {
