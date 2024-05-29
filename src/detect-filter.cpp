@@ -54,7 +54,7 @@ static bool enable_advanced_settings(obs_properties_t *ppts, obs_property_t *p,
 
 	for (const char *prop_name :
 	     {"threshold", "useGPU", "numThreads", "model_size", "detected_object", "sort_tracking",
-	      "max_unseen_frames", "show_unseen_objects", "save_detections_path"}) {
+	      "max_unseen_frames", "show_unseen_objects", "save_detections_path", "crop_group"}) {
 		p = obs_properties_get(ppts, prop_name);
 		obs_property_set_visible(p, enabled);
 	}
@@ -247,6 +247,33 @@ obs_properties_t *detect_filter_properties(void *data)
 	// If advanced is selected show the advanced settings, otherwise hide them
 	obs_property_set_modified_callback(advanced, enable_advanced_settings);
 
+	// add a checkable group for crop region settings
+	obs_properties_t *crop_group_props = obs_properties_create();
+	obs_property_t *crop_group =
+		obs_properties_add_group(props, "crop_group", obs_module_text("CropGroup"),
+					 OBS_GROUP_CHECKABLE, crop_group_props);
+
+	// add callback to show/hide crop region options
+	obs_property_set_modified_callback(crop_group, [](obs_properties_t *props_,
+							  obs_property_t *, obs_data_t *settings) {
+		const bool enabled = obs_data_get_bool(settings, "crop_group");
+		for (auto prop_name : {"crop_left", "crop_right", "crop_top", "crop_bottom"}) {
+			obs_property_t *prop = obs_properties_get(props_, prop_name);
+			obs_property_set_visible(prop, enabled);
+		}
+		return true;
+	});
+
+	// add crop region settings
+	obs_properties_add_int_slider(crop_group_props, "crop_left", obs_module_text("CropLeft"), 0,
+				      100, 1);
+	obs_properties_add_int_slider(crop_group_props, "crop_right", obs_module_text("CropRight"),
+				      0, 100, 1);
+	obs_properties_add_int_slider(crop_group_props, "crop_top", obs_module_text("CropTop"), 0,
+				      100, 1);
+	obs_properties_add_int_slider(crop_group_props, "crop_bottom",
+				      obs_module_text("CropBottom"), 0, 100, 1);
+
 	// add a text input for the currently detected object
 	obs_property_t *detected_obj_prop = obs_properties_add_text(
 		props, "detected_object", obs_module_text("DetectedObject"), OBS_TEXT_DEFAULT);
@@ -388,6 +415,11 @@ void detect_filter_defaults(obs_data_t *settings)
 	obs_data_set_default_double(settings, "zoom_speed_factor", 0.05);
 	obs_data_set_default_string(settings, "zoom_object", "single");
 	obs_data_set_default_string(settings, "save_detections_path", "");
+	obs_data_set_default_bool(settings, "crop_group", false);
+	obs_data_set_default_int(settings, "crop_left", 0);
+	obs_data_set_default_int(settings, "crop_right", 0);
+	obs_data_set_default_int(settings, "crop_top", 0);
+	obs_data_set_default_int(settings, "crop_bottom", 0);
 }
 
 void detect_filter_update(void *data, obs_data_t *settings)
@@ -811,6 +843,14 @@ void detect_filter_video_tick(void *data, float seconds)
 	}
 
 	if (tf->preview || tf->maskingEnabled) {
+		if (tf->preview && tf->crop_enabled) {
+			// draw the crop rectangle on the frame
+			cv::rectangle(frame,
+				      cv::Rect(tf->crop_left, tf->crop_top,
+					       frame.cols - tf->crop_left - tf->crop_right,
+					       frame.rows - tf->crop_top - tf->crop_bottom),
+				      cv::Scalar(0, 255, 0), 3);
+		}
 		if (tf->preview && objects.size() > 0) {
 			edgeyolo_cpp::utils::draw_objects(frame, objects, tf->classNames);
 		}

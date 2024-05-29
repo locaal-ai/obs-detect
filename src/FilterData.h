@@ -32,6 +32,11 @@ struct filter_data {
 	bool sortTracking;
 	bool showUnseenObjects;
 	std::string saveDetectionsPath;
+	bool crop_enabled;
+	int crop_left;
+	int crop_right;
+	int crop_top;
+	int crop_bottom;
 
 	// create SORT tracker
 	Sort tracker;
