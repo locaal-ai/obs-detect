@@ -53,7 +53,8 @@ static bool enable_advanced_settings(obs_properties_t *ppts, obs_property_t *p,
 	const bool enabled = obs_data_get_bool(settings, "advanced");
 
 	for (const char *prop_name :
-	     {"threshold", "useGPU", "numThreads", "model_size", "detected_object"}) {
+	     {"threshold", "useGPU", "numThreads", "model_size", "detected_object", "sort_tracking",
+	      "max_unseen_frames", "show_unseen_objects", "save_detections_path"}) {
 		p = obs_properties_get(ppts, prop_name);
 		obs_property_set_visible(p, enabled);
 	}
@@ -266,6 +267,11 @@ obs_properties_t *detect_filter_properties(void *data)
 	// add option to show unseen objects
 	obs_properties_add_bool(props, "show_unseen_objects", obs_module_text("ShowUnseenObjects"));
 
+	// add file path for saving detections
+	obs_properties_add_path(props, "save_detections_path",
+				obs_module_text("SaveDetectionsPath"), OBS_PATH_FILE_SAVE,
+				"JSON file (*.json);;All files (*.*)", nullptr);
+
 	/* GPU, CPU and performance Props */
 	obs_property_t *p_use_gpu =
 		obs_properties_add_list(props, "useGPU", obs_module_text("InferenceDevice"),
@@ -381,6 +387,7 @@ void detect_filter_defaults(obs_data_t *settings)
 	obs_data_set_default_double(settings, "zoom_factor", 0.0);
 	obs_data_set_default_double(settings, "zoom_speed_factor", 0.05);
 	obs_data_set_default_string(settings, "zoom_object", "single");
+	obs_data_set_default_string(settings, "save_detections_path", "");
 }
 
 void detect_filter_update(void *data, obs_data_t *settings)
@@ -408,6 +415,7 @@ void detect_filter_update(void *data, obs_data_t *settings)
 		tf->tracker.setMaxUnseenFrames(maxUnseenFrames);
 	}
 	tf->showUnseenObjects = obs_data_get_bool(settings, "show_unseen_objects");
+	tf->saveDetectionsPath = obs_data_get_string(settings, "save_detections_path");
 
 	// check if tracking state has changed
 	if (tf->trackingEnabled != newTrackingEnabled) {
@@ -777,6 +785,29 @@ void detect_filter_video_tick(void *data, float seconds)
 						     return obj.unseenFrames > 0;
 					     }),
 			      objects.end());
+	}
+
+	if (!tf->saveDetectionsPath.empty()) {
+		std::ofstream detectionsFile(tf->saveDetectionsPath);
+		if (detectionsFile.is_open()) {
+			nlohmann::json j;
+			for (const edgeyolo_cpp::Object &obj : objects) {
+				nlohmann::json obj_json;
+				obj_json["label"] = obj.label;
+				obj_json["confidence"] = obj.prob;
+				obj_json["rect"] = {{"x", obj.rect.x},
+						    {"y", obj.rect.y},
+						    {"width", obj.rect.width},
+						    {"height", obj.rect.height}};
+				obj_json["id"] = obj.id;
+				j.push_back(obj_json);
+			}
+			detectionsFile << j.dump(4);
+			detectionsFile.close();
+		} else {
+			obs_log(LOG_ERROR, "Failed to open file for writing detections: %s",
+				tf->saveDetectionsPath.c_str());
+		}
 	}
 
 	if (tf->preview || tf->maskingEnabled) {

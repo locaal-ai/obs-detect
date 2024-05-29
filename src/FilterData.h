@@ -31,6 +31,7 @@ struct filter_data {
 	int lastDetectedObjectId;
 	bool sortTracking;
 	bool showUnseenObjects;
+	std::string saveDetectionsPath;
 
 	// create SORT tracker
 	Sort tracker;

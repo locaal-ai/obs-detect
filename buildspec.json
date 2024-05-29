@@ -38,7 +38,7 @@
     },
     "name": "obs-detect",
     "displayName": "OBS Object Detection plugin",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "author": "Roy Shilkrot",
     "website": "https://github.com/occ-ai/obs-detect",
     "email": "roy.shil@gmail.com",
