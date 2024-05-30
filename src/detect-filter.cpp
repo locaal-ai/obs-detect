@@ -796,8 +796,8 @@ void detect_filter_video_tick(void *data, float seconds)
 	if (tf->crop_enabled) {
 		// translate the detected objects to the original frame
 		for (edgeyolo_cpp::Object &obj : objects) {
-			obj.rect.x += cropRect.x;
-			obj.rect.y += cropRect.y;
+			obj.rect.x += (float)cropRect.x;
+			obj.rect.y += (float)cropRect.y;
 		}
 	}
 
