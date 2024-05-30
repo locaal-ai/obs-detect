@@ -81,7 +81,13 @@ endif()
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE vendor)
 
 target_sources(
-  ${CMAKE_PROJECT_NAME} PRIVATE src/plugin-main.c src/detect-filter.cpp src/detect-filter-info.c
-                                src/obs-utils/obs-utils.cpp src/edgeyolo/edgeyolo_onnxruntime.cpp src/sort/Sort.cpp)
+  ${CMAKE_PROJECT_NAME}
+  PRIVATE src/plugin-main.c
+          src/detect-filter.cpp
+          src/detect-filter-info.c
+          src/detect-filter-utils.cpp
+          src/obs-utils/obs-utils.cpp
+          src/edgeyolo/edgeyolo_onnxruntime.cpp
+          src/sort/Sort.cpp)
 
 set_target_properties_plugin(${CMAKE_PROJECT_NAME} PROPERTIES OUTPUT_NAME ${_name})

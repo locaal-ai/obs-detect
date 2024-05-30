@@ -25,6 +25,7 @@
 #include "consts.h"
 #include "obs-utils/obs-utils.h"
 #include "edgeyolo/utils.hpp"
+#include "detect-filter-utils.h"
 
 #define EXTERNAL_MODEL_SIZE "!!!EXTERNAL_MODEL!!!"
 
@@ -266,13 +267,13 @@ obs_properties_t *detect_filter_properties(void *data)
 
 	// add crop region settings
 	obs_properties_add_int_slider(crop_group_props, "crop_left", obs_module_text("CropLeft"), 0,
-				      100, 1);
+				      1000, 1);
 	obs_properties_add_int_slider(crop_group_props, "crop_right", obs_module_text("CropRight"),
-				      0, 100, 1);
+				      0, 1000, 1);
 	obs_properties_add_int_slider(crop_group_props, "crop_top", obs_module_text("CropTop"), 0,
-				      100, 1);
+				      1000, 1);
 	obs_properties_add_int_slider(crop_group_props, "crop_bottom",
-				      obs_module_text("CropBottom"), 0, 100, 1);
+				      obs_module_text("CropBottom"), 0, 1000, 1);
 
 	// add a text input for the currently detected object
 	obs_property_t *detected_obj_prop = obs_properties_add_text(
@@ -448,6 +449,11 @@ void detect_filter_update(void *data, obs_data_t *settings)
 	}
 	tf->showUnseenObjects = obs_data_get_bool(settings, "show_unseen_objects");
 	tf->saveDetectionsPath = obs_data_get_string(settings, "save_detections_path");
+	tf->crop_enabled = obs_data_get_bool(settings, "crop_group");
+	tf->crop_left = (int)obs_data_get_int(settings, "crop_left");
+	tf->crop_right = (int)obs_data_get_int(settings, "crop_right");
+	tf->crop_top = (int)obs_data_get_int(settings, "crop_top");
+	tf->crop_bottom = (int)obs_data_get_int(settings, "crop_bottom");
 
 	// check if tracking state has changed
 	if (tf->trackingEnabled != newTrackingEnabled) {
@@ -762,17 +768,37 @@ void detect_filter_video_tick(void *data, float seconds)
 		imageBGRA = tf->inputBGRA.clone();
 	}
 
-	cv::Mat frame;
-	cv::cvtColor(imageBGRA, frame, cv::COLOR_BGRA2BGR);
+	cv::Mat inferenceFrame;
+
+	cv::Rect cropRect(0, 0, imageBGRA.cols, imageBGRA.rows);
+	if (tf->crop_enabled) {
+		cropRect = cv::Rect(tf->crop_left, tf->crop_top,
+				    imageBGRA.cols - tf->crop_left - tf->crop_right,
+				    imageBGRA.rows - tf->crop_top - tf->crop_bottom);
+		obs_log(LOG_INFO, "Crop: %d %d %d %d", cropRect.x, cropRect.y, cropRect.width,
+			cropRect.height);
+		cv::cvtColor(imageBGRA(cropRect), inferenceFrame, cv::COLOR_BGRA2BGR);
+	} else {
+		cv::cvtColor(imageBGRA, inferenceFrame, cv::COLOR_BGRA2BGR);
+	}
+
 	std::vector<edgeyolo_cpp::Object> objects;
 
 	try {
 		std::unique_lock<std::mutex> lock(tf->modelMutex);
-		objects = tf->edgeyolo->inference(frame);
+		objects = tf->edgeyolo->inference(inferenceFrame);
 	} catch (const Ort::Exception &e) {
 		obs_log(LOG_ERROR, "ONNXRuntime Exception: %s", e.what());
 	} catch (const std::exception &e) {
 		obs_log(LOG_ERROR, "%s", e.what());
+	}
+
+	if (tf->crop_enabled) {
+		// translate the detected objects to the original frame
+		for (edgeyolo_cpp::Object &obj : objects) {
+			obj.rect.x += cropRect.x;
+			obj.rect.y += cropRect.y;
+		}
 	}
 
 	// update the detected object text input
@@ -843,13 +869,12 @@ void detect_filter_video_tick(void *data, float seconds)
 	}
 
 	if (tf->preview || tf->maskingEnabled) {
+		cv::Mat frame;
+		cv::cvtColor(imageBGRA, frame, cv::COLOR_BGRA2BGR);
+
 		if (tf->preview && tf->crop_enabled) {
-			// draw the crop rectangle on the frame
-			cv::rectangle(frame,
-				      cv::Rect(tf->crop_left, tf->crop_top,
-					       frame.cols - tf->crop_left - tf->crop_right,
-					       frame.rows - tf->crop_top - tf->crop_bottom),
-				      cv::Scalar(0, 255, 0), 3);
+			// draw the crop rectangle on the frame in a dashed line
+			drawDashedRectangle(frame, cropRect, cv::Scalar(0, 255, 0), 5, 8, 15);
 		}
 		if (tf->preview && objects.size() > 0) {
 			edgeyolo_cpp::utils::draw_objects(frame, objects, tf->classNames);
@@ -868,7 +893,10 @@ void detect_filter_video_tick(void *data, float seconds)
 	}
 
 	if (tf->trackingEnabled && tf->trackingFilter) {
-		cv::Rect2f boundingBox = cv::Rect2f(0, 0, (float)frame.cols, (float)frame.rows);
+		const int width = imageBGRA.cols;
+		const int height = imageBGRA.rows;
+
+		cv::Rect2f boundingBox = cv::Rect2f(0, 0, (float)width, (float)height);
 		// get location of the objects
 		if (tf->zoomObject == "single") {
 			if (objects.size() > 0) {
@@ -887,11 +915,11 @@ void detect_filter_video_tick(void *data, float seconds)
 		// the zooming box should maintain the aspect ratio of the image
 		// with the tf->zoomFactor controlling the effective buffer around the bounding box
 		// the bounding box is the center of the zooming box
-		float frameAspectRatio = (float)frame.cols / (float)frame.rows;
+		float frameAspectRatio = (float)width / (float)height;
 		// calculate an aspect ratio box around the object using its height
 		float boxHeight = boundingBox.height;
 		// calculate the zooming box size
-		float dh = (float)frame.rows - boxHeight;
+		float dh = (float)height - boxHeight;
 		float buffer = dh * (1.0f - tf->zoomFactor);
 		float zh = boxHeight + buffer;
 		float zw = zh * frameAspectRatio;
@@ -922,11 +950,11 @@ void detect_filter_video_tick(void *data, float seconds)
 		// right = image width - (zx + zw)
 		obs_data_set_int(
 			crop_pad_settings, "right",
-			(int)((float)frame.cols - (tf->trackingRect.x + tf->trackingRect.width)));
+			(int)((float)width - (tf->trackingRect.x + tf->trackingRect.width)));
 		// bottom = image height - (zy + zh)
 		obs_data_set_int(
 			crop_pad_settings, "bottom",
-			(int)((float)frame.rows - (tf->trackingRect.y + tf->trackingRect.height)));
+			(int)((float)height - (tf->trackingRect.y + tf->trackingRect.height)));
 		// apply the settings
 		obs_source_update(tf->trackingFilter, crop_pad_settings);
 		obs_data_release(crop_pad_settings);
