@@ -2,7 +2,7 @@
 #define FILTERDATA_H
 
 #include <obs-module.h>
-#include "edgeyolo/edgeyolo_onnxruntime.hpp"
+#include "ort-model/ONNXRuntimeModel.h"
 #include "sort/Sort.h"
 
 /**
@@ -58,7 +58,7 @@ struct filter_data {
 	std::mutex outputLock;
 	std::mutex modelMutex;
 
-	std::unique_ptr<edgeyolo_cpp::EdgeYOLOONNXRuntime> edgeyolo;
+	std::unique_ptr<ONNXRuntimeModel> onnxruntimemodel;
 	std::vector<std::string> classNames;
 
 #if _WIN32
