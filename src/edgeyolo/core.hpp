@@ -4,7 +4,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 
-#include "types.hpp"
+#include "ort-model/ONNXRuntimeModel.h"
 
 namespace edgeyolo_cpp {
 /**
@@ -12,79 +12,26 @@ namespace edgeyolo_cpp {
  */
 #define tcout std::cout
 
-#ifdef _WIN32
-#define file_name_t std::wstring
-#else
-#define file_name_t std::string
-#endif
-
 #define imread_t cv::imread
 
-class AbcEdgeYOLO {
+class AbcEdgeYOLO : public ONNXRuntimeModel {
 public:
-	AbcEdgeYOLO() {}
-	AbcEdgeYOLO(float nms_th = 0.45f, float conf_th = 0.3f, int num_classes = 80)
-		: nms_thresh_(nms_th),
-		  bbox_conf_thresh_(conf_th),
-		  num_classes_(num_classes)
+	AbcEdgeYOLO(file_name_t path_to_model, int intra_op_num_threads, int inter_op_num_threads,
+		    const std::string &use_gpu_, int device_id, bool use_parallel, float nms_th,
+		    float conf_th, int num_classes = 80)
+		: ONNXRuntimeModel(path_to_model, intra_op_num_threads, num_classes,
+				   inter_op_num_threads, use_gpu_, device_id, use_parallel, nms_th,
+				   conf_th)
 	{
+		this->num_array_ = 1;
+		for (size_t i = 0; i < this->output_shapes_[0].size(); i++) {
+			this->num_array_ *= (int)(this->output_shapes_[0][i]);
+		}
+		this->num_array_ /= (5 + this->num_classes_);
 	}
-	virtual std::vector<Object> inference(const cv::Mat &frame) = 0;
-
-	void setBBoxConfThresh(float thresh) { this->bbox_conf_thresh_ = thresh; }
 
 protected:
-	int input_w_;
-	int input_h_;
-	float nms_thresh_;
-	float bbox_conf_thresh_;
-	int num_classes_;
 	int num_array_;
-	const std::vector<float> mean_ = {0.485f, 0.456f, 0.406f};
-	const std::vector<float> std_ = {0.229f, 0.224f, 0.225f};
-
-	cv::Mat static_resize(const cv::Mat &img)
-	{
-		float r = std::fminf((float)input_w_ / (float)img.cols,
-				     (float)input_h_ / (float)img.rows);
-		// r = std::min(r, 1.0f);
-		int unpad_w = (int)(r * (float)img.cols);
-		int unpad_h = (int)(r * (float)img.rows);
-		cv::Mat re(unpad_h, unpad_w, CV_8UC3);
-		cv::resize(img, re, re.size());
-		cv::Mat out(input_h_, input_w_, CV_8UC3, cv::Scalar(114, 114, 114));
-		re.copyTo(out(cv::Rect(0, 0, re.cols, re.rows)));
-		return out;
-	}
-
-	// for NCHW
-	void blobFromImage(const cv::Mat &img, float *blob_data)
-	{
-		size_t channels = 3;
-		size_t img_h = img.rows;
-		size_t img_w = img.cols;
-		for (size_t c = 0; c < channels; ++c) {
-			for (size_t h = 0; h < img_h; ++h) {
-				for (size_t w = 0; w < img_w; ++w) {
-					blob_data[(int)(c * img_w * img_h + h * img_w + w)] =
-						(float)img.ptr<cv::Vec3b>((int)h)[(int)w][(int)c];
-				}
-			}
-		}
-	}
-
-	// for NHWC
-	void blobFromImage_nhwc(const cv::Mat &img, float *blob_data)
-	{
-		size_t channels = 3;
-		size_t img_h = img.rows;
-		size_t img_w = img.cols;
-		for (size_t i = 0; i < img_h * img_w; ++i) {
-			for (size_t c = 0; c < channels; ++c) {
-				blob_data[i * channels + c] = (float)img.data[i * channels + c];
-			}
-		}
-	}
 
 	void generate_edgeyolo_proposals(const int num_array, const float *feat_ptr,
 					 const float prob_threshold, std::vector<Object> &objects)
@@ -121,79 +68,6 @@ protected:
 				obj.prob = max_class_score;
 				objects.push_back(obj);
 			}
-		}
-	}
-
-	float intersection_area(const Object &a, const Object &b)
-	{
-		cv::Rect_<float> inter = a.rect & b.rect;
-		return inter.area();
-	}
-
-	void qsort_descent_inplace(std::vector<Object> &faceobjects, int left, int right)
-	{
-		int i = left;
-		int j = right;
-		float p = faceobjects[(left + right) / 2].prob;
-
-		while (i <= j) {
-			while (faceobjects[i].prob > p)
-				++i;
-
-			while (faceobjects[j].prob < p)
-				--j;
-
-			if (i <= j) {
-				std::swap(faceobjects[i], faceobjects[j]);
-
-				++i;
-				--j;
-			}
-		}
-		if (left < j)
-			qsort_descent_inplace(faceobjects, left, j);
-		if (i < right)
-			qsort_descent_inplace(faceobjects, i, right);
-	}
-
-	void qsort_descent_inplace(std::vector<Object> &objects)
-	{
-		if (objects.empty())
-			return;
-
-		qsort_descent_inplace(objects, 0, (int)(objects.size() - 1));
-	}
-
-	void nms_sorted_bboxes(const std::vector<Object> &faceobjects, std::vector<int> &picked,
-			       const float nms_threshold)
-	{
-		picked.clear();
-
-		const size_t n = faceobjects.size();
-
-		std::vector<float> areas(n);
-		for (size_t i = 0; i < n; ++i) {
-			areas[i] = faceobjects[i].rect.area();
-		}
-
-		for (size_t i = 0; i < n; ++i) {
-			const Object &a = faceobjects[i];
-			const size_t picked_size = picked.size();
-
-			int keep = 1;
-			for (size_t j = 0; j < picked_size; ++j) {
-				const Object &b = faceobjects[picked[j]];
-
-				// intersection over union
-				float inter_area = intersection_area(a, b);
-				float union_area = areas[i] + areas[picked[j]] - inter_area;
-				// float IoU = inter_area / union_area
-				if (inter_area / union_area > nms_threshold)
-					keep = 0;
-			}
-
-			if (keep)
-				picked.push_back((int)i);
 		}
 	}
 

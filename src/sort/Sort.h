@@ -5,7 +5,7 @@
 #include <opencv2/video/tracking.hpp>
 #include <vector>
 
-#include "edgeyolo/types.hpp"
+#include "ort-model/types.hpp"
 
 class Sort {
 public:
@@ -16,11 +16,10 @@ public:
 	~Sort();
 
 	// Update the tracking with detected objects
-	std::vector<edgeyolo_cpp::Object>
-	update(const std::vector<edgeyolo_cpp::Object> &detections);
+	std::vector<Object> update(const std::vector<Object> &detections);
 
 	// Get the current tracked objects and their classes
-	std::vector<edgeyolo_cpp::Object> getTrackedObjects() const;
+	std::vector<Object> getTrackedObjects() const;
 
 	// Set Max Unseen Frames
 	void setMaxUnseenFrames(size_t maxUnseenFrames_)
@@ -38,7 +37,7 @@ private:
 	cv::Rect_<float> updateKalmanFilter(cv::KalmanFilter &kf, const cv::Rect_<float> &bbox);
 
 	// Data members for tracking
-	std::vector<edgeyolo_cpp::Object> trackedObjects;
+	std::vector<Object> trackedObjects;
 	uint64_t nextTrackID;
 	size_t maxUnseenFrames;
 };

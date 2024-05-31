@@ -98,10 +98,10 @@ float computeIoU(const cv::Rect_<float> &rect1, const cv::Rect_<float> &rect2)
 }
 
 // Update the tracking with detected objects
-std::vector<edgeyolo_cpp::Object> Sort::update(const std::vector<edgeyolo_cpp::Object> &detections)
+std::vector<Object> Sort::update(const std::vector<Object> &detections)
 {
 	if (detections.empty()) {
-		std::vector<edgeyolo_cpp::Object> newTrackedObjects;
+		std::vector<Object> newTrackedObjects;
 
 		// No detections, predict the next state of the existing tracks and update unseen frames
 		for (size_t i = 0; i < trackedObjects.size(); ++i) {
@@ -192,7 +192,7 @@ std::vector<edgeyolo_cpp::Object> Sort::update(const std::vector<edgeyolo_cpp::O
 	}
 
 	// Remove lost tracks
-	std::vector<edgeyolo_cpp::Object> newTrackedObjects;
+	std::vector<Object> newTrackedObjects;
 	std::vector<int> newTrackIDs;
 	for (size_t i = 0; i < trackedObjects.size(); ++i) {
 		if (trackedObjectUsed[i] ||
@@ -209,7 +209,7 @@ std::vector<edgeyolo_cpp::Object> Sort::update(const std::vector<edgeyolo_cpp::O
 }
 
 // Get the current tracked objects and their tracking id
-std::vector<edgeyolo_cpp::Object> Sort::getTrackedObjects() const
+std::vector<Object> Sort::getTrackedObjects() const
 {
 	return trackedObjects;
 }

@@ -4,7 +4,11 @@
 #include <opencv2/core/types.hpp>
 #include <opencv2/video/tracking.hpp>
 
-namespace edgeyolo_cpp {
+#ifdef _WIN32
+#define file_name_t std::wstring
+#else
+#define file_name_t std::string
+#endif
 
 struct Object {
 	cv::Rect_<float> rect;
@@ -20,7 +24,5 @@ struct GridAndStride {
 	int grid1;
 	int stride;
 };
-
-} // namespace edgeyolo_cpp
 
 #endif
