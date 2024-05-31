@@ -61,7 +61,7 @@ std::vector<Object> YuNetONNX::postProcess(const std::vector<Ort::Value> &result
 		const Ort::Value &cls = result[i];
 		const Ort::Value &obj = result[i + this->strides.size() * 1];
 		const Ort::Value &bbox = result[i + this->strides.size() * 2];
-		const Ort::Value &kps = result[i + this->strides.size() * 3];
+		// const Ort::Value &kps = result[i + this->strides.size() * 3];
 
 		// Decode from predictions
 		const float *cls_v = cls.GetTensorData<float>();
@@ -112,7 +112,7 @@ std::vector<Object> YuNetONNX::postProcess(const std::vector<Ort::Value> &result
 	ONNXRuntimeModel::nms_sorted_bboxes(faces, picked, this->nms_thresh_);
 
 	// Keep topk
-	if (this->keep_topk < picked.size()) {
+	if ((size_t)this->keep_topk < picked.size()) {
 		picked.resize(this->keep_topk);
 	}
 
