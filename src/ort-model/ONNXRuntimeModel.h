@@ -21,6 +21,8 @@ public:
 			 int inter_op_num_threads = 1, const std::string &use_gpu_ = "",
 			 int device_id = 0, bool use_parallel = false, float nms_th = 0.45f,
 			 float conf_th = 0.3f);
+	// virtual destructor
+	virtual ~ONNXRuntimeModel() {}
 
 	void setBBoxConfThresh(float thresh) { this->bbox_conf_thresh_ = thresh; }
 	void setNmsThresh(float thresh) { this->nms_thresh_ = thresh; }

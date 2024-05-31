@@ -54,8 +54,8 @@ std::vector<Object> YuNetONNX::postProcess(const std::vector<Ort::Value> &result
 	std::vector<Object> faces;
 	for (size_t i = 0; i < this->strides.size(); ++i) {
 		const float stride = (float)strides[i];
-		int cols = int(this->padW / stride);
-		int rows = int(this->padH / stride);
+		int cols = int((float)this->padW / stride);
+		int rows = int((float)this->padH / stride);
 
 		// Extract from output_blobs
 		const Ort::Value &cls = result[i];
@@ -67,7 +67,7 @@ std::vector<Object> YuNetONNX::postProcess(const std::vector<Ort::Value> &result
 		const float *cls_v = cls.GetTensorData<float>();
 		const float *obj_v = obj.GetTensorData<float>();
 		const float *bbox_v = bbox.GetTensorData<float>();
-		const float *kps_v = kps.GetTensorData<float>();
+		// const float *kps_v = kps.GetTensorData<float>();
 
 		for (int r = 0; r < rows; ++r) {
 			for (int c = 0; c < cols; ++c) {
