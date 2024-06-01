@@ -159,14 +159,17 @@ obs_properties_t *detect_filter_properties(void *data)
 		obs_property_t *masking_color = obs_properties_get(props_, "masking_color");
 		obs_property_t *masking_blur_radius =
 			obs_properties_get(props_, "masking_blur_radius");
+		obs_property_t *masking_dilation =
+			obs_properties_get(props_, "dilation_iterations");
 
 		obs_property_set_visible(prop, enabled);
 		obs_property_set_visible(masking_color, false);
 		obs_property_set_visible(masking_blur_radius, false);
-		const char *masking_type_value = obs_data_get_string(settings, "masking_type");
-		if (strcmp(masking_type_value, "solid_color") == 0) {
+		obs_property_set_visible(masking_dilation, enabled);
+		std::string masking_type_value = obs_data_get_string(settings, "masking_type");
+		if (masking_type_value == "solid_color") {
 			obs_property_set_visible(masking_color, enabled);
-		} else if (strcmp(masking_type_value, "blur") == 0) {
+		} else if (masking_type_value == "blur" || masking_type_value == "pixelate") {
 			obs_property_set_visible(masking_blur_radius, enabled);
 		}
 		return true;
@@ -181,6 +184,7 @@ obs_properties_t *detect_filter_properties(void *data)
 	obs_property_list_add_string(masking_type, obs_module_text("SolidColor"), "solid_color");
 	obs_property_list_add_string(masking_type, obs_module_text("OutputMask"), "output_mask");
 	obs_property_list_add_string(masking_type, obs_module_text("Blur"), "blur");
+	obs_property_list_add_string(masking_type, obs_module_text("Pixelate"), "pixelate");
 	obs_property_list_add_string(masking_type, obs_module_text("Transparent"), "transparent");
 
 	// add color picker for solid color masking
@@ -191,26 +195,31 @@ obs_properties_t *detect_filter_properties(void *data)
 				      obs_module_text("MaskingBlurRadius"), 1, 30, 1);
 
 	// add callback to show/hide blur radius and color picker
-	obs_property_set_modified_callback(
-		masking_type, [](obs_properties_t *props_, obs_property_t *, obs_data_t *settings) {
-			const bool masking_enabled = obs_data_get_bool(settings, "masking_group");
-			const char *masking_type_value =
-				obs_data_get_string(settings, "masking_type");
-			obs_property_t *masking_color = obs_properties_get(props_, "masking_color");
-			obs_property_t *masking_blur_radius =
-				obs_properties_get(props_, "masking_blur_radius");
-			obs_property_set_visible(masking_color, false);
-			obs_property_set_visible(masking_blur_radius, false);
+	obs_property_set_modified_callback(masking_type, [](obs_properties_t *props_,
+							    obs_property_t *,
+							    obs_data_t *settings) {
+		std::string masking_type_value = obs_data_get_string(settings, "masking_type");
+		obs_property_t *masking_color = obs_properties_get(props_, "masking_color");
+		obs_property_t *masking_blur_radius =
+			obs_properties_get(props_, "masking_blur_radius");
+		obs_property_t *masking_dilation =
+			obs_properties_get(props_, "dilation_iterations");
+		obs_property_set_visible(masking_color, false);
+		obs_property_set_visible(masking_blur_radius, false);
+		const bool masking_enabled = obs_data_get_bool(settings, "masking_group");
+		obs_property_set_visible(masking_dilation, masking_enabled);
 
-			if (masking_enabled) {
-				if (strcmp(masking_type_value, "solid_color") == 0) {
-					obs_property_set_visible(masking_color, true);
-				} else if (strcmp(masking_type_value, "blur") == 0) {
-					obs_property_set_visible(masking_blur_radius, true);
-				}
-			}
-			return true;
-		});
+		if (masking_type_value == "solid_color") {
+			obs_property_set_visible(masking_color, masking_enabled);
+		} else if (masking_type_value == "blur" || masking_type_value == "pixelate") {
+			obs_property_set_visible(masking_blur_radius, masking_enabled);
+		}
+		return true;
+	});
+
+	// add slider for dilation iterations
+	obs_properties_add_int_slider(masking_group, "dilation_iterations",
+				      obs_module_text("DilationIterations"), 0, 20, 1);
 
 	// add options group for tracking and zoom-follow options
 	obs_properties_t *tracking_group_props = obs_properties_create();
@@ -243,6 +252,8 @@ obs_properties_t *detect_filter_properties(void *data)
 							      OBS_COMBO_TYPE_LIST,
 							      OBS_COMBO_FORMAT_STRING);
 	obs_property_list_add_string(zoom_object, obs_module_text("SingleFirst"), "single");
+	obs_property_list_add_string(zoom_object, obs_module_text("Biggest"), "biggest");
+	obs_property_list_add_string(zoom_object, obs_module_text("Oldest"), "oldest");
 	obs_property_list_add_string(zoom_object, obs_module_text("All"), "all");
 
 	obs_property_t *advanced =
@@ -416,6 +427,7 @@ void detect_filter_defaults(obs_data_t *settings)
 	obs_data_set_default_string(settings, "masking_type", "none");
 	obs_data_set_default_string(settings, "masking_color", "#000000");
 	obs_data_set_default_int(settings, "masking_blur_radius", 0);
+	obs_data_set_default_int(settings, "dilation_iterations", 0);
 	obs_data_set_default_bool(settings, "tracking_group", false);
 	obs_data_set_default_double(settings, "zoom_factor", 0.0);
 	obs_data_set_default_double(settings, "zoom_speed_factor", 0.05);
@@ -443,6 +455,7 @@ void detect_filter_update(void *data, obs_data_t *settings)
 	tf->maskingType = obs_data_get_string(settings, "masking_type");
 	tf->maskingColor = (int)obs_data_get_int(settings, "masking_color");
 	tf->maskingBlurRadius = (int)obs_data_get_int(settings, "masking_blur_radius");
+	tf->maskingDilateIterations = (int)obs_data_get_int(settings, "dilation_iterations");
 	bool newTrackingEnabled = obs_data_get_bool(settings, "tracking_group");
 	tf->zoomFactor = (float)obs_data_get_double(settings, "zoom_factor");
 	tf->zoomSpeedFactor = (float)obs_data_get_double(settings, "zoom_speed_factor");
@@ -701,37 +714,29 @@ void *detect_filter_create(obs_data_t *settings, obs_source_t *source)
 	tf->texrender = gs_texrender_create(GS_BGRA, GS_ZS_NONE);
 	tf->lastDetectedObjectId = -1;
 
-	char *kawaseBlurEffectPath = obs_module_file(KAWASE_BLUR_EFFECT_PATH);
-	if (!kawaseBlurEffectPath) {
-		obs_log(LOG_ERROR, "Failed to get Kawase Blur effect path");
-		tf->isDisabled = true;
-		return tf;
-	}
-	char *maskingEffectPath = obs_module_file(MASKING_EFFECT_PATH);
-	if (!maskingEffectPath) {
-		obs_log(LOG_ERROR, "Failed to get masking effect path");
-		tf->isDisabled = true;
-		bfree(kawaseBlurEffectPath);
-		return tf;
-	}
+	std::vector<std::tuple<const char *, gs_effect_t **>> effects = {
+		{KAWASE_BLUR_EFFECT_PATH, &tf->kawaseBlurEffect},
+		{MASKING_EFFECT_PATH, &tf->maskingEffect},
+		{PIXELATE_EFFECT_PATH, &tf->pixelateEffect},
+	};
 
-	obs_enter_graphics();
-	gs_effect_destroy(tf->kawaseBlurEffect);
-	tf->kawaseBlurEffect = nullptr;
-	char *error = nullptr;
-	tf->kawaseBlurEffect = gs_effect_create_from_file(kawaseBlurEffectPath, &error);
-	bfree(kawaseBlurEffectPath);
-	if (!tf->kawaseBlurEffect || error) {
-		obs_log(LOG_ERROR, "Failed to load Kawase Blur effect: %s", error);
+	for (auto [effectPath, effect] : effects) {
+		char *effectPathPtr = obs_module_file(effectPath);
+		if (!effectPathPtr) {
+			obs_log(LOG_ERROR, "Failed to get effect path: %s", effectPath);
+			tf->isDisabled = true;
+			return tf;
+		}
+		obs_enter_graphics();
+		*effect = gs_effect_create_from_file(effectPathPtr, nullptr);
+		bfree(effectPathPtr);
+		if (!*effect) {
+			obs_log(LOG_ERROR, "Failed to load effect: %s", effectPath);
+			tf->isDisabled = true;
+			return tf;
+		}
+		obs_leave_graphics();
 	}
-	gs_effect_destroy(tf->maskingEffect);
-	tf->maskingEffect = nullptr;
-	tf->maskingEffect = gs_effect_create_from_file(maskingEffectPath, &error);
-	bfree(maskingEffectPath);
-	if (!tf->maskingEffect || error) {
-		obs_log(LOG_ERROR, "Failed to load masking effect: %s", error);
-	}
-	obs_leave_graphics();
 
 	detect_filter_update(tf, settings);
 
@@ -903,6 +908,13 @@ void detect_filter_video_tick(void *data, float seconds)
 			}
 			std::lock_guard<std::mutex> lock(tf->outputLock);
 			mask.copyTo(tf->outputMask);
+
+			if (tf->maskingDilateIterations > 0) {
+				cv::Mat dilatedMask;
+				cv::dilate(tf->outputMask, dilatedMask, cv::Mat(),
+					   cv::Point(-1, -1), tf->maskingDilateIterations);
+				dilatedMask.copyTo(tf->outputMask);
+			}
 		}
 
 		std::lock_guard<std::mutex> lock(tf->outputLock);
@@ -917,13 +929,45 @@ void detect_filter_video_tick(void *data, float seconds)
 		// get location of the objects
 		if (tf->zoomObject == "single") {
 			if (objects.size() > 0) {
-				boundingBox = objects[0].rect;
+				// find first visible object
+				for (const Object &obj : objects) {
+					if (obj.unseenFrames == 0) {
+						boundingBox = obj.rect;
+						break;
+					}
+				}
+			}
+		} else if (tf->zoomObject == "biggest") {
+			// get the bounding box of the biggest object
+			if (objects.size() > 0) {
+				float maxArea = 0;
+				for (const Object &obj : objects) {
+					const float area = obj.rect.width * obj.rect.height;
+					if (area > maxArea) {
+						maxArea = area;
+						boundingBox = obj.rect;
+					}
+				}
+			}
+		} else if (tf->zoomObject == "oldest") {
+			// get the object with the oldest id that's visible currently
+			if (objects.size() > 0) {
+				uint64_t oldestId = UINT64_MAX;
+				for (const Object &obj : objects) {
+					if (obj.unseenFrames == 0 && obj.id < oldestId) {
+						oldestId = obj.id;
+						boundingBox = obj.rect;
+					}
+				}
 			}
 		} else {
 			// get the bounding box of all objects
 			if (objects.size() > 0) {
 				boundingBox = objects[0].rect;
 				for (const Object &obj : objects) {
+					if (obj.unseenFrames > 0) {
+						continue;
+					}
 					boundingBox |= obj.rect;
 				}
 			}
@@ -1042,6 +1086,10 @@ void detect_filter_video_render(void *data, gs_effect_t *_effect)
 			} else if (tf->maskingType == "blur") {
 				gs_texture_destroy(tex);
 				tex = blur_image(tf, width, height, maskTexture);
+			} else if (tf->maskingType == "pixelate") {
+				gs_texture_destroy(tex);
+				tex = pixelate_image(tf, width, height, maskTexture,
+						     (float)tf->maskingBlurRadius);
 			} else if (tf->maskingType == "transparent") {
 				technique_name = "DrawSolidColor";
 				gs_effect_set_color(maskColorParam, 0);

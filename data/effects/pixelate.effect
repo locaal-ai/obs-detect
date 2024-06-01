@@ -1,0 +1,51 @@
+uniform float4x4 ViewProj;
+uniform texture2d image;
+uniform texture2d focalmask;
+
+uniform float pixel_size; // Size of the pixelation
+uniform float2 tex_size; // Size of the texture in pixels
+
+sampler_state textureSampler {
+	Filter    = Linear;
+	AddressU  = Clamp;
+	AddressV  = Clamp;
+};
+
+struct VertDataIn {
+	float4 pos : POSITION;
+	float2 uv  : TEXCOORD0;
+};
+
+struct VertDataOut {
+	float4 pos : POSITION;
+	float2 uv  : TEXCOORD0;
+};
+
+VertDataOut VSDefault(VertDataOut v_in)
+{
+	VertDataOut vert_out;
+	vert_out.pos = mul(float4(v_in.pos.xyz, 1.0), ViewProj);
+	vert_out.uv  = v_in.uv;
+	return vert_out;
+}
+
+float4 PSPixelate(VertDataOut v_in) : TARGET
+{
+    if (focalmask.Sample(textureSampler, v_in.uv).r == 0) {
+		// No mask - return the original image value without any blur
+		return image.Sample(textureSampler, v_in.uv);
+	}
+
+    float2 pixelUV = v_in.uv * tex_size; // Convert to pixel coordinates
+    float2 pixelatedUV = floor(pixelUV / pixel_size) * pixel_size / tex_size;
+    return image.Sample(textureSampler, pixelatedUV);
+}
+
+technique Draw
+{
+	pass
+	{
+		vertex_shader = VSDefault(v_in);
+		pixel_shader  = PSPixelate(v_in);
+	}
+}
