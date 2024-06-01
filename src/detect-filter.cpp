@@ -863,7 +863,7 @@ void detect_filter_video_tick(void *data, float seconds)
 	if (tf->minAreaThreshold > 0) {
 		std::vector<Object> filtered_objects;
 		for (const Object &obj : objects) {
-			if (obj.rect.area() > tf->minAreaThreshold) {
+			if (obj.rect.area() > (float)tf->minAreaThreshold) {
 				filtered_objects.push_back(obj);
 			}
 		}
