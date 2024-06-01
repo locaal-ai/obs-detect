@@ -17,11 +17,13 @@ struct filter_data {
 	float conf_threshold;
 	std::string modelSize;
 
+	int minAreaThreshold;
 	int objectCategory;
 	bool maskingEnabled;
 	std::string maskingType;
 	int maskingColor;
 	int maskingBlurRadius;
+	int maskingDilateIterations;
 	bool trackingEnabled;
 	float zoomFactor;
 	float zoomSpeedFactor;
@@ -46,6 +48,7 @@ struct filter_data {
 	gs_stagesurf_t *stagesurface;
 	gs_effect_t *kawaseBlurEffect;
 	gs_effect_t *maskingEffect;
+	gs_effect_t *pixelateEffect;
 
 	cv::Mat inputBGRA;
 	cv::Mat outputPreviewBGRA;

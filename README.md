@@ -39,18 +39,18 @@ Current features:
 
 - Detect over 80 categories of objects, using an efficient model ([EdgeYOLO](https://github.com/LSH9832/edgeyolo))
 - 3 Model sizes: Small, Medium and Large
+- Face detection model, fast and efficient ([YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet))
 - Load custom ONNX detection models from disk
-- Control detection threshold
-- Select object category filter (e.g. find only "Person")
-- Masking: Blur, Solid color, Transparent, output binary mask (combine with other plugins!)
-- Tracking: Single object / All objects, Zoom factor, smooth transition
+- Filter by: Minimal Detection confidence, Object category (e.g. only "Person"), Object Minimal Size
+- Masking: Blur, Pixelate, Solid color, Transparent, output binary mask (combine with other plugins!)
+- Tracking: Single object / Biggest / Oldest / All objects, Zoom factor, smooth transition
+- SORT algorithm for tracking smoothness and continuity
+- Save detections to file in real-time, for integrations e.g. with Streamer.bot
 
 Roadmap features:
 - Precise object mask, beyond bounding box
-- Implement SORT tracking for smoothness
 - Multiple object category selection (e.g. Dog + Cat + Duck)
 - Make available detection information for other plugins through settings
-- More real-time models choices
 
 ## Train and use a custom detection model
 
