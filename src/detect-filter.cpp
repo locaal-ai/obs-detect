@@ -58,7 +58,8 @@ static bool enable_advanced_settings(obs_properties_t *ppts, obs_property_t *p,
 
 	for (const char *prop_name :
 	     {"threshold", "useGPU", "numThreads", "model_size", "detected_object", "sort_tracking",
-	      "max_unseen_frames", "show_unseen_objects", "save_detections_path", "crop_group"}) {
+	      "max_unseen_frames", "show_unseen_objects", "save_detections_path", "crop_group",
+	      "min_size_threshold"}) {
 		p = obs_properties_get(ppts, prop_name);
 		obs_property_set_visible(p, enabled);
 	}
@@ -299,6 +300,10 @@ obs_properties_t *detect_filter_properties(void *data)
 	obs_properties_add_float_slider(props, "threshold", obs_module_text("ConfThreshold"), 0.0,
 					1.0, 0.025);
 
+	// add minimal size threshold slider
+	obs_properties_add_int_slider(props, "min_size_threshold",
+				      obs_module_text("MinSizeThreshold"), 0, 10000, 1);
+
 	// add SORT tracking enabled checkbox
 	obs_properties_add_bool(props, "sort_tracking", obs_module_text("SORTTracking"));
 
@@ -355,16 +360,24 @@ obs_properties_t *detect_filter_properties(void *data)
 		[](void *data_, obs_properties_t *props_, obs_property_t *p, obs_data_t *settings) {
 			UNUSED_PARAMETER(p);
 			struct detect_filter *tf_ = reinterpret_cast<detect_filter *>(data_);
-			const char *model_size_value = obs_data_get_string(settings, "model_size");
-			bool is_external = strcmp(model_size_value, EXTERNAL_MODEL_SIZE) == 0;
+			std::string model_size_value = obs_data_get_string(settings, "model_size");
+			bool is_external = model_size_value == EXTERNAL_MODEL_SIZE;
 			obs_property_t *prop = obs_properties_get(props_, "external_model_file");
 			obs_property_set_visible(prop, is_external);
 			if (!is_external) {
-				// reset the class names to COCO classes for default models
-				set_class_names_on_object_category(
-					obs_properties_get(props_, "object_category"),
-					edgeyolo_cpp::COCO_CLASSES);
-				tf_->classNames = edgeyolo_cpp::COCO_CLASSES;
+				if (model_size_value == FACE_DETECT_MODEL_SIZE) {
+					// set the class names to COCO classes for face detection model
+					set_class_names_on_object_category(
+						obs_properties_get(props_, "object_category"),
+						yunet::FACE_CLASSES);
+					tf_->classNames = yunet::FACE_CLASSES;
+				} else {
+					// reset the class names to COCO classes for default models
+					set_class_names_on_object_category(
+						obs_properties_get(props_, "object_category"),
+						edgeyolo_cpp::COCO_CLASSES);
+					tf_->classNames = edgeyolo_cpp::COCO_CLASSES;
+				}
 			} else {
 				// if the model path is already set - update the class names
 				const char *model_file =
@@ -472,6 +485,7 @@ void detect_filter_update(void *data, obs_data_t *settings)
 	tf->crop_right = (int)obs_data_get_int(settings, "crop_right");
 	tf->crop_top = (int)obs_data_get_int(settings, "crop_top");
 	tf->crop_bottom = (int)obs_data_get_int(settings, "crop_bottom");
+	tf->minAreaThreshold = (int)obs_data_get_int(settings, "min_size_threshold");
 
 	// check if tracking state has changed
 	if (tf->trackingEnabled != newTrackingEnabled) {
@@ -844,6 +858,16 @@ void detect_filter_video_tick(void *data, float seconds)
 			// release the source settings
 			obs_data_release(source_settings);
 		}
+	}
+
+	if (tf->minAreaThreshold > 0) {
+		std::vector<Object> filtered_objects;
+		for (const Object &obj : objects) {
+			if (obj.rect.area() > tf->minAreaThreshold) {
+				filtered_objects.push_back(obj);
+			}
+		}
+		objects = filtered_objects;
 	}
 
 	if (tf->objectCategory != -1) {

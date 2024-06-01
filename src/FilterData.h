@@ -17,6 +17,7 @@ struct filter_data {
 	float conf_threshold;
 	std::string modelSize;
 
+	int minAreaThreshold;
 	int objectCategory;
 	bool maskingEnabled;
 	std::string maskingType;
