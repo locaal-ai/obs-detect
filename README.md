@@ -22,8 +22,8 @@ This work uses the great contributions from [EdgeYOLO-ROS](https://github.com/fa
 ## Usage
 
 <div align="center">
-<a href="https://youtu.be/LrbUrvaGreQ"><img width="40%" src="https://github.com/occ-ai/obs-detect/assets/441170/b8e7367e-c1b0-4c7e-b0df-af45ead87199" /></a><br/>
-  (2 Minute)
+<a href="https://youtu.be/LrbUrvaGreQ"><img width="40%" src="https://github.com/occ-ai/obs-detect/assets/441170/b8e7367e-c1b0-4c7e-b0df-af45ead87199" /></a>&nbsp;
+<a href="https://youtu.be/zmdq1bPVYs0"><img width="40%" src="https://github.com/occ-ai/obs-detect/assets/441170/2eb08589-1695-4a40-877e-4985c2b5270f" /></a>
 </div>
 
 - Add the "Detect" filter to any source with an image (Media, Browser, VLC, Image, etc.)
