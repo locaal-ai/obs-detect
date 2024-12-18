@@ -1,4 +1,6 @@
-# OBS Detect - Object Detection and Masking Filter
+# ⚠️ Stalled ⚠️ This project is not under active development
+
+## OBS Detect - Object Detection and Masking Filter
 
 <div align="center">
 
